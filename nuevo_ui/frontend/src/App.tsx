@@ -98,7 +98,7 @@ function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen w-full relative overflow-hidden">
+    <div className="min-h-screen w-full relative">
       {/* Background */}
       <div className="absolute inset-0" style={{
         background: 'linear-gradient(45deg, #292E49, #536976)'
@@ -261,7 +261,7 @@ function Dashboard() {
         </div>
 
         {/* Footer */}
-        <footer className="mt-8 pb-8 text-center text-white/30 text-xs space-y-1">
+        <footer className="mt-8 pb-24 text-center text-white/30 text-xs space-y-1">
           <p>NUEVO UI · MAE 162 · UCLA · 2026</p>
         </footer>
       </div>

@@ -20,9 +20,9 @@ interface LED {
 }
 
 const USER_LEDS: LED[] = [
-  { name: "Red",    color: "#ef4444", index: 0 },
   { name: "Green",  color: "#10b981", index: 1 },
   { name: "Blue",   color: "#3b82f6", index: 2 },
+  { name: "Red",    color: "#ef4444", index: 0 },
   { name: "Orange", color: "#f97316", index: 3 },
   { name: "Purple", color: "#a855f7", index: 4 },
 ];
@@ -138,7 +138,7 @@ export function UserIOSection() {
     }`;
 
   const lsClass = (pressed: boolean) =>
-    `flex items-center justify-center text-white text-xs h-6 rounded-lg border transition-all ${
+    `flex items-center justify-center text-white text-xs w-10 h-6 rounded-lg border transition-all ${
       pressed
         ? "border-white/60 bg-white/50 shadow-[0_0_10px_rgba(255,255,255,0.25)]"
         : "bg-white/10 border-white/20"
@@ -150,10 +150,10 @@ export function UserIOSection() {
       <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/5 to-transparent opacity-50"></div>
 
       <div className="relative space-y-4">
-        <div className="grid grid-cols-2">
+        <div className="flex justify-between items-start">
 
           {/* Limit Switches */}
-          <div>
+          <div className="shrink-0">
             <h4 className="text-sm font-semibold text-white mb-2">Limit switches</h4>
             <div className="grid grid-cols-2 gap-1.5">
               {LIMIT_SW_LAYOUT.map((id) => (
@@ -163,24 +163,23 @@ export function UserIOSection() {
           </div>
 
           {/* User LEDs */}
-          <div className="ml-10">
+          <div className="shrink-0 min-w-[120px]">
             <h4 className="text-sm font-semibold text-white mb-2">LEDs</h4>
             <div className="space-y-2">
-              {USER_LEDS.map((led, i) => (
-                <div key={led.name} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="size-3 rounded-full"
-                      style={{
-                        backgroundColor: ledOn(i) ? led.color : "rgba(255,255,255,0.2)",
-                        boxShadow: ledOn(i) ? `0 0 8px ${led.color}` : "none",
-                      }}
-                    />
-                    <span className="text-xs text-white/70">{led.name}</span>
-                  </div>
+              {USER_LEDS.map((led) => (
+                <div key={led.name} className="flex items-center gap-2">
+                  <div
+                    className="size-3 shrink-0 rounded-full"
+                    style={{
+                      backgroundColor: ledOn(led.index) ? led.color : "rgba(255,255,255,0.2)",
+                      boxShadow: ledOn(led.index) ? `0 0 8px ${led.color}` : "none",
+                    }}
+                  />
+                  <span className="text-xs text-white/70">{led.name}</span>
                   <Switch
-                    checked={ledOn(i)}
-                    onCheckedChange={() => toggleLed(i)}
+                    checked={ledOn(led.index)}
+                    onCheckedChange={() => toggleLed(led.index)}
+                    className="ml-auto"
                   />
                 </div>
               ))}

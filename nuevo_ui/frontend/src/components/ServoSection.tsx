@@ -109,9 +109,9 @@ export function ServoSection() {
           </div>
 
           {/* Status indicators — 4 groups of 4 vertical bars */}
-          <div className="flex gap-3 mb-2 h-8">
+          <div className="flex gap-3 mb-2 h-8 min-w-0 overflow-hidden">
             {[0, 1, 2, 3].map((group) => (
-              <div key={group} className="flex gap-1.5 flex-1 justify-center">
+              <div key={group} className="flex gap-1.5 flex-1 justify-center min-w-0">
                 {Array.from({ length: 4 }, (_, i) => group * 4 + i + 1).map((ch) => {
                   const enabled = getChannelEnabled(ch);
                   return (

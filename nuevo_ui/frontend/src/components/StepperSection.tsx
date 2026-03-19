@@ -61,7 +61,7 @@ export function StepperSection({ stepperId }: StepperSectionProps) {
 
         <div className="relative">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-base font-semibold text-white">Stepper {stepperId}</h3>
+            <h3 className="text-sm font-semibold text-white whitespace-nowrap">Stepper {stepperId}</h3>
             <ChevronDown className="size-4 text-white/70 group-hover:text-white transition-colors" />
           </div>
 
