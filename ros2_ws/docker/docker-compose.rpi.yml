@@ -48,6 +48,7 @@ services:
       - NUEVO_SERIAL_PORT=/dev/ttyAMA0
       - NUEVO_SERIAL_BAUD=200000
 
+
     restart: unless-stopped
 
     healthcheck:

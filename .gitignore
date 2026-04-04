@@ -15,7 +15,6 @@ openspec/
 ros2_ws/build/
 ros2_ws/install/
 ros2_ws/log/
-ros2_ws/src/rplidar_ros/
 .colcon_workspace
 *.colcon_workspace
 
@@ -203,7 +202,7 @@ get-docker.sh
 test_data/
 logs/
 *.log
-
+*.png
 
 # TLV Type Generated Definitions
 # TLV_TypeDefs.h
