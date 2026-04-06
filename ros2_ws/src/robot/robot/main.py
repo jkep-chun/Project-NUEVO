@@ -69,22 +69,7 @@ class MyFSM(RobotFSM):
 
     def __init__(self, robot: Robot) -> None:
         super().__init__(robot, initial_state="INIT")
-        self.path = self._densify_polyline(
-            np.array([
-                [0.0, 0.0],
-                [0.0, 500.0],
-                [500.0, 500.0],
-                [500.0, 0.0],
-            ]),
-            spacing_mm=25.0,
-        )
-        self.remaining_path = self.path.copy()
-        self.planner = PurePursuitPlanner(
-            lookahead_dist=LOOKAHEAD_MM,
-            max_angular=MAX_ANGULAR_SPEED_RAD_S,
-            goal_tolerance=20.0,
-        )
-        self._next_debug_log_time = 0.0
+        
 
         self.add_transition("INIT",   "ready",     "IDLE",   action=self._on_ready)
         self.add_transition("IDLE",   "to_moving", "MOVING", action=self._on_to_moving)
@@ -108,8 +93,25 @@ class MyFSM(RobotFSM):
 
         if state == "INIT":
             self.trigger("ready")
+            # Wirte your code here
+            self.RawPath = np.array([
+                [0.0, 610.0],
+                [610.0, 610.0],
+                [610.0, 0.0],
+                [0.0, 0.0],
+            ])
+            self.path = self._densify_polyline(self.RawPath, spacing_mm=25.0) # Generate a interpolated path with points every 25 mm.
+            self.remaining_path = self.path.copy() # Use the interpolated path for pure pursuit, not the original control points.
+            #self.remaining_path = self.RawPath.copy() # Use the original control points for pure pursuit, not the interpolated path.
+            self.planner = PurePursuzitPlanner(
+                lookahead_dist=LOOKAHEAD_MM,
+                max_angular=MAX_ANGULAR_SPEED_RAD_S,
+                goal_tolerance=20.0,
+            )
+            self._next_debug_log_time = 0.0
 
         elif state == "IDLE":
+            self.trigger("to_moving")
             if self.robot.get_button(Button.BTN_1):
                 self.trigger("to_moving")
 
@@ -152,7 +154,8 @@ class MyFSM(RobotFSM):
                 )
                 self._next_debug_log_time = now + 0.25
 
-            if self.planner.TargetReached(current_x, current_y, self.remaining_path):
+            #if self.planner.TargetReached(current_x, current_y, self.remaining_path):
+            if self.planner.CurrentTargetReached(current_x, current_y, current_pursuit_x, current_pursuit_y):
                 print("MOVING: Target reached! Stopping.")
                 self.trigger("to_idle")
 
@@ -169,7 +172,7 @@ class MyFSM(RobotFSM):
         self.robot.set_state(FirmwareState.RUNNING)
         self.robot.reset_odometry()
         self.robot.wait_for_pose_update(timeout=0.2)
-        self.remaining_path = self.path[1:].copy() if len(self.path) > 1 else self.path.copy()
+        #self.remaining_path = self.path[1:].copy() if len(self.path) > 1 else self.path.copy()
         self._show_idle_leds()
         print("[FSM] IDLE (odometry reset)")
 

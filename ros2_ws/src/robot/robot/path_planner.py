@@ -137,6 +137,10 @@ class PurePursuitPlanner(PathPlanner):
         goal_x, goal_y = waypoints[-1]
         dist_to_goal = np.hypot(goal_x - x, goal_y - y)
         return dist_to_goal < self.goal_tolerance
+    
+    def CurrentTargetReached(self, x: float, y: float, target_x: float, target_y: float) -> bool:
+        dist_to_target = np.hypot(target_x - x, target_y - y)
+        return dist_to_target < self.goal_tolerance
 
 
 class PurePursuitPlanner2(PathPlanner):
