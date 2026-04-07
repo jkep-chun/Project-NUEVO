@@ -3,7 +3,7 @@ from __future__ import annotations
 import signal
 import threading
 
-import rclpy
+import rclpy # ROS client library for Python
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.signals import SignalHandlerOptions
