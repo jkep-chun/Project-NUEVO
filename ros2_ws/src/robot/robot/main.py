@@ -114,13 +114,16 @@ def run(robot: Robot) -> None:
             """Start your code here"""
             # Step 1: Get current pose, including current coordinates and heading angle in degrees 
             # using robot.get_pose() function. Store the values in current_x, current_y, and current_theta_deg variables. 
+            current_x, current_y, current_theta_deg = robot.get_pose()
 
             # Step 2: Convert current_theta_deg to radians and store it in current_theta_rad variable.  
+            current_theta_rad = math.radians(current_theta_deg)
 
             # Step 3: Use the _advance_remaining_path() function to update the remaining_path variable 
             # by advancing it based on the current position (current_x, current_y) and an advance radius(20.0) mm.
             # This will take out the waypoints that are already passed (within 20mm of the current position), 
             # effectively "advancing" the path as the robot moves.
+            remaining_path = _advance_remaining_path(remaining_path, current_x, current_y, advance_radius)
 
             # Step 4: Use the _lookahead_point() function to calculate the current pursuit point 
             # in your path, defined as (current_pursuit_x, current_pursuit_y)
