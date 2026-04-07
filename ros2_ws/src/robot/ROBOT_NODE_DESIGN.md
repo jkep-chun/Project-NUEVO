@@ -43,7 +43,9 @@ class Robot:
                  encoder_ppr: int = 1440):
 ```
 
-`unit` controls every length/velocity input and output (position, velocity, wheel params).
+`unit` controls every length/velocity input and output used by the public
+high-level API. Runtime odometry geometry set through `set_odometry_parameters()`
+follows the current user unit system; the explicit `*_mm` helpers remain raw mm.
 Internally everything is stored and sent in mm / ticks. The conversion is:
 
 ```
@@ -71,13 +73,14 @@ FSM/path-planner threads read it.
 | `estop()` | yes | shorthand for `set_state(ESTOP)` |
 | `reset_estop()` | yes | shorthand for `set_state(IDLE)` |
 | `reset_odometry()` | no | publishes `/sys_odom_reset`; resets pose to `(0, 0, current initial theta)` |
-| `set_wheel_diameter_mm(mm)` | no | publishes `/sys_odom_param_set`; updates wheel diameter |
-| `set_wheel_base_mm(mm)` | no | publishes `/sys_odom_param_set`; updates wheel base |
+| `set_odometry_parameters(wheel_diameter=None, wheel_base=None, initial_theta_deg=None, left_motor_id=None, left_motor_dir_inverted=None, right_motor_id=None, right_motor_dir_inverted=None)` | no | publishes `/sys_odom_param_set`; `wheel_diameter` and `wheel_base` are in the current user unit system |
+| `set_wheel_diameter_mm(mm)` | no | publishes `/sys_odom_param_set`; updates wheel diameter in explicit millimeters |
+| `set_wheel_base_mm(mm)` | no | publishes `/sys_odom_param_set`; updates wheel base in explicit millimeters |
 | `set_initial_theta(theta_deg)` | no | publishes `/sys_odom_param_set`; used on future odom resets |
 | `set_odom_left_motor(motor_id)` / `set_odom_right_motor(motor_id)` | no | select which DC motors represent the diff-drive wheels |
 | `set_odom_left_motor_dir_inverted(flag)` / `set_odom_right_motor_dir_inverted(flag)` | no | configure wheel-sign convention for odometry and high-level body motion |
 | `request_odometry_parameters()` | no | publishes `/sys_odom_param_req`; asks firmware for the active runtime odom snapshot |
-| `get_odometry_parameters() → dict` | no | returns the latest local / `/sys_odom_param_rsp` snapshot |
+| `get_odometry_parameters() → dict` | no | returns the latest local / `/sys_odom_param_rsp` snapshot in firmware-native millimeters |
 | `get_power() → SystemPower` | no | cached `/sys_power` |
 
 #### Pose / odometry

@@ -16,6 +16,8 @@ Behavior:
       rpi -> ros2_ws/docker/docker-compose.rpi.yml
       vm  -> ros2_ws/docker/docker-compose.vm.yml
   - Default is rpi.
+  - If /ros2_ws/install/setup.bash is missing inside the container, the script
+    runs a first-time colcon build before entering the shell.
 
 Examples:
   ./ros2_ws/docker/enter_ros2.sh
@@ -55,7 +57,15 @@ fi
 
 exec docker compose -f "${compose_file}" exec ros2_runtime bash -lc '
 source /opt/ros/jazzy/setup.bash
-source /ros2_ws/install/setup.bash
 cd /ros2_ws
+
+if [[ ! -f /ros2_ws/install/setup.bash ]]; then
+    echo "[enter_ros2] /ros2_ws/install/setup.bash not found; running first-time build..."
+    colcon build \
+        --symlink-install \
+        --cmake-args -DBUILD_TESTING=OFF
+fi
+
+source /ros2_ws/install/setup.bash
 exec bash -i
 '

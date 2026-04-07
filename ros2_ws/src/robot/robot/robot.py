@@ -11,6 +11,7 @@ from rclpy.node import Node
 from bridge_interfaces.msg import (
     DCEnable,
     DCHome,
+    DCPid,
     DCPidReq,
     DCPidSet,
     DCResetPosition,
@@ -20,11 +21,14 @@ from bridge_interfaces.msg import (
     DCStateAll,
     IOSetLed,
     IOSetNeopixel,
+    IOOutputState,
     SensorImu,
     SensorKinematics,
     ServoEnable,
     ServoSet,
     ServoStateAll,
+    StepConfig,
+    StepConfigReq,
     StepConfigSet,
     StepEnable,
     StepHome,
@@ -34,6 +38,9 @@ from bridge_interfaces.msg import (
     SysOdomParamRsp,
     SysOdomParamSet,
     SysOdomReset,
+    SystemConfig,
+    SystemDiag,
+    SystemInfo,
     SystemPower,
     SystemState,
     IOInputState,
@@ -181,9 +188,15 @@ class Robot:
         # ── Cached firmware state ─────────────────────────────────────────────
         self._sys_state:  int            = 0
         self._sys_power:  SystemPower    = None
+        self._sys_info:   SystemInfo     = None
+        self._sys_config: SystemConfig   = None
+        self._sys_diag:   SystemDiag     = None
         self._dc_state:   DCStateAll     = None
+        self._dc_pid_cache: dict[tuple[int, int], DCPid] = {}
         self._step_state: StepStateAll   = None
+        self._step_config_cache: dict[int, StepConfig] = {}
         self._servo_state: ServoStateAll = None
+        self._io_output_state: IOOutputState = None
         self._imu:        SensorImu      = None
         self._pose:    tuple = (0.0, 0.0, 0.0)  # x_mm, y_mm, theta_rad
         self._vel:     tuple = (0.0, 0.0, 0.0)  # vx_mm_s, vy_mm_s, vtheta_rad_s
@@ -217,6 +230,7 @@ class Robot:
         self._step_en_pub  = node.create_publisher(StepEnable,     '/step_enable',      10)
         self._step_mv_pub  = node.create_publisher(StepMove,       '/step_move',        10)
         self._step_hm_pub  = node.create_publisher(StepHome,       '/step_home',        10)
+        self._step_cfg_req_pub = node.create_publisher(StepConfigReq, '/step_config_req', 10)
         self._step_cfg_pub = node.create_publisher(StepConfigSet,  '/step_config_set',  10)
         self._srv_en_pub   = node.create_publisher(ServoEnable,    '/servo_enable',     10)
         self._srv_set_pub  = node.create_publisher(ServoSet,       '/servo_set',        10)
@@ -229,12 +243,18 @@ class Robot:
         # ── Subscriptions ─────────────────────────────────────────────────────
         node.create_subscription(SystemState,      '/sys_state',         self._on_sys_state,   10)
         node.create_subscription(SystemPower,      '/sys_power',         self._on_sys_power,   10)
+        node.create_subscription(SystemInfo,       '/sys_info_rsp',      self._on_sys_info,    10)
+        node.create_subscription(SystemConfig,     '/sys_config_rsp',    self._on_sys_config,  10)
+        node.create_subscription(SystemDiag,       '/sys_diag_rsp',      self._on_sys_diag,    10)
+        node.create_subscription(DCPid,            '/dc_pid_rsp',        self._on_dc_pid,      10)
         node.create_subscription(DCStateAll,       '/dc_state_all',      self._on_dc_state,    10)
+        node.create_subscription(StepConfig,       '/step_config_rsp',   self._on_step_config, 10)
         node.create_subscription(StepStateAll,     '/step_state_all',    self._on_step_state,  10)
         node.create_subscription(ServoStateAll,    '/servo_state_all',   self._on_servo_state, 10)
         node.create_subscription(SensorImu,        '/sensor_imu',        self._on_imu,         10)
         node.create_subscription(SensorKinematics, '/sensor_kinematics', self._on_kinematics,  10)
         node.create_subscription(IOInputState,     '/io_input_state',    self._on_io_input,    10)
+        node.create_subscription(IOOutputState,    '/io_output_state',   self._on_io_output,   10)
         node.create_subscription(SysOdomParamRsp,  '/sys_odom_param_rsp', self._on_odom_param_rsp, 10)
 
         # ── Service clients ───────────────────────────────────────────────────
@@ -255,9 +275,29 @@ class Robot:
         with self._lock:
             self._sys_power = msg
 
+    def _on_sys_info(self, msg: SystemInfo) -> None:
+        with self._lock:
+            self._sys_info = msg
+
+    def _on_sys_config(self, msg: SystemConfig) -> None:
+        with self._lock:
+            self._sys_config = msg
+
+    def _on_sys_diag(self, msg: SystemDiag) -> None:
+        with self._lock:
+            self._sys_diag = msg
+
+    def _on_dc_pid(self, msg: DCPid) -> None:
+        with self._lock:
+            self._dc_pid_cache[(int(msg.motor_number), int(msg.loop_type))] = msg
+
     def _on_dc_state(self, msg: DCStateAll) -> None:
         with self._lock:
             self._dc_state = msg
+
+    def _on_step_config(self, msg: StepConfig) -> None:
+        with self._lock:
+            self._step_config_cache[int(msg.stepper_number)] = msg
 
     def _on_step_state(self, msg: StepStateAll) -> None:
         with self._lock:
@@ -299,6 +339,10 @@ class Robot:
                 ev = self._limit_events.get(bid)
                 if ev:
                     ev.set()
+
+    def _on_io_output(self, msg: IOOutputState) -> None:
+        with self._lock:
+            self._io_output_state = msg
 
     def _on_odom_param_rsp(self, msg: SysOdomParamRsp) -> None:
         self._apply_odom_param_snapshot(
@@ -358,11 +402,11 @@ class Robot:
         self._odom_pub.publish(msg)
 
     def set_wheel_diameter_mm(self, wheel_diameter_mm: float) -> None:
-        """Update wheel diameter for firmware odometry and robot-side motion conversion."""
+        """Update wheel diameter in explicit millimeters."""
         self._update_odometry_params(wheel_diameter_mm=wheel_diameter_mm)
 
     def set_wheel_base_mm(self, wheel_base_mm: float) -> None:
-        """Update wheel base for firmware odometry and robot-side diff-drive mixing."""
+        """Update wheel base in explicit millimeters."""
         self._update_odometry_params(wheel_base_mm=wheel_base_mm)
 
     def set_initial_theta(self, theta_deg: float) -> None:
@@ -400,18 +444,25 @@ class Robot:
     def set_odometry_parameters(
         self,
         *,
-        wheel_diameter_mm: float | None = None,
-        wheel_base_mm: float | None = None,
+        wheel_diameter: float | None = None,
+        wheel_base: float | None = None,
         initial_theta_deg: float | None = None,
         left_motor_id: int | None = None,
         left_motor_dir_inverted: bool | None = None,
         right_motor_id: int | None = None,
         right_motor_dir_inverted: bool | None = None,
     ) -> None:
-        """Publish a full odometry-parameter snapshot to firmware in one call."""
+        """
+        Publish a full odometry-parameter snapshot to firmware in one call.
+
+        wheel_diameter and wheel_base are in the current user unit system.
+        Use set_wheel_diameter_mm() / set_wheel_base_mm() when you need to
+        work in explicit raw millimeters instead.
+        """
+        scale = self._unit.value
         self._update_odometry_params(
-            wheel_diameter_mm=wheel_diameter_mm,
-            wheel_base_mm=wheel_base_mm,
+            wheel_diameter_mm=None if wheel_diameter is None else float(wheel_diameter) * scale,
+            wheel_base_mm=None if wheel_base is None else float(wheel_base) * scale,
             initial_theta_deg=initial_theta_deg,
             left_wheel_motor=left_motor_id,
             left_wheel_dir_inverted=left_motor_dir_inverted,
@@ -426,7 +477,7 @@ class Robot:
         self._odom_param_req_pub.publish(msg)
 
     def get_odometry_parameters(self) -> dict[str, float | int | bool]:
-        """Return the latest local odometry parameter snapshot."""
+        """Return the latest local odometry parameter snapshot in firmware-native millimeters."""
         with self._lock:
             return {
                 "wheel_diameter_mm": self._wheel_diameter,
@@ -442,6 +493,21 @@ class Robot:
         """Return cached power state (battery_mv, rail_5v_mv, servo_rail_mv)."""
         with self._lock:
             return self._sys_power
+
+    def get_system_info(self) -> SystemInfo:
+        """Return cached system information from /sys_info_rsp."""
+        with self._lock:
+            return self._sys_info
+
+    def get_system_config(self) -> SystemConfig:
+        """Return cached system configuration from /sys_config_rsp."""
+        with self._lock:
+            return self._sys_config
+
+    def get_system_diag(self) -> SystemDiag:
+        """Return cached system diagnostics from /sys_diag_rsp."""
+        with self._lock:
+            return self._sys_diag
 
     # =========================================================================
     # Pose / odometry
@@ -987,6 +1053,13 @@ class Robot:
         msg.loop_type    = loop_type
         self._dc_pid_req.publish(msg)
 
+    def get_pid(self, motor_id: int, loop_type: DCPidLoop | int) -> DCPid | None:
+        """Return cached PID parameters for one motor/loop pair, or None if unknown."""
+        motor_id = self._require_id("motor_id", motor_id, 1, 4)
+        loop_type = self._require_enum("loop_type", loop_type, DCPidLoop)
+        with self._lock:
+            return self._dc_pid_cache.get((motor_id, loop_type))
+
     def get_dc_state(self) -> DCStateAll:
         """Return cached DC motor state (position, velocity, mode, etc.)."""
         with self._lock:
@@ -1075,6 +1148,19 @@ class Robot:
         msg.acceleration   = int(acceleration)
         self._step_cfg_pub.publish(msg)
 
+    def request_step_config(self, stepper_id: int) -> None:
+        """Request current speed/acceleration config for one stepper."""
+        stepper_id = self._require_id("stepper_id", stepper_id, 1, 4)
+        msg = StepConfigReq()
+        msg.stepper_number = stepper_id
+        self._step_cfg_req_pub.publish(msg)
+
+    def get_step_config(self, stepper_id: int) -> StepConfig | None:
+        """Return cached config for one stepper, or None if it has not been seen yet."""
+        stepper_id = self._require_id("stepper_id", stepper_id, 1, 4)
+        with self._lock:
+            return self._step_config_cache.get(stepper_id)
+
     def get_step_state(self) -> StepStateAll:
         """Return cached stepper motor state."""
         with self._lock:
@@ -1132,6 +1218,7 @@ class Robot:
         """
         Non-blocking: current state of button button_id (1–10).
         Reads from the latest cached IOInputState message.
+        Return True if the button is pressed.
         """
         button_id = self._require_id("button_id", button_id, 1, BUTTON_COUNT)
         with self._lock:
@@ -1174,6 +1261,11 @@ class Robot:
         limit_id = self._require_id("limit_id", limit_id, 1, LIMIT_COUNT)
         with self._lock:
             return bool((self._limits >> (limit_id - 1)) & 1)
+
+    def get_io_output_state(self) -> IOOutputState:
+        """Return cached LED/NeoPixel output state from /io_output_state."""
+        with self._lock:
+            return self._io_output_state
 
     def was_limit_triggered(self, limit_id: int, consume: bool = True) -> bool:
         """Return True once per rising edge seen on limit_id."""

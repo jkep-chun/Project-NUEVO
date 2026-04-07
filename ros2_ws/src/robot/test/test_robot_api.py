@@ -87,6 +87,7 @@ def _install_fake_robot_dependencies() -> None:
     for name in [
         "DCEnable",
         "DCHome",
+        "DCPid",
         "DCPidReq",
         "DCPidSet",
         "DCResetPosition",
@@ -95,6 +96,7 @@ def _install_fake_robot_dependencies() -> None:
         "DCSetVelocity",
         "DCStateAll",
         "IOInputState",
+        "IOOutputState",
         "IOSetLed",
         "IOSetNeopixel",
         "SensorImu",
@@ -102,6 +104,8 @@ def _install_fake_robot_dependencies() -> None:
         "ServoEnable",
         "ServoSet",
         "ServoStateAll",
+        "StepConfig",
+        "StepConfigReq",
         "StepConfigSet",
         "StepEnable",
         "StepHome",
@@ -111,6 +115,9 @@ def _install_fake_robot_dependencies() -> None:
         "SysOdomParamRsp",
         "SysOdomParamSet",
         "SysOdomReset",
+        "SystemConfig",
+        "SystemDiag",
+        "SystemInfo",
         "SystemPower",
         "SystemState",
     ]:
@@ -214,11 +221,38 @@ class RobotApiTests(unittest.TestCase):
         self.assertEqual(msg.right_motor_number, 2)
         self.assertTrue(msg.right_motor_dir_inverted)
 
+    def test_set_odometry_parameters_uses_current_unit_for_geometry(self) -> None:
+        self.robot.set_unit(self.robot_module.Unit.INCH)
+
+        self.robot.set_odometry_parameters(
+            wheel_diameter=3.0,
+            wheel_base=12.0,
+        )
+
+        msg = self.node.publishers["/sys_odom_param_set"].published[-1]
+        self.assertAlmostEqual(msg.wheel_diameter_mm, 76.2, places=6)
+        self.assertAlmostEqual(msg.wheel_base_mm, 304.8, places=6)
+        self.assertAlmostEqual(self.robot.get_odometry_parameters()["wheel_diameter_mm"], 76.2, places=6)
+        self.assertAlmostEqual(self.robot.get_odometry_parameters()["wheel_base_mm"], 304.8, places=6)
+
     def test_request_odometry_parameters_publishes_query(self) -> None:
         self.robot.request_odometry_parameters()
 
         msg = self.node.publishers["/sys_odom_param_req"].published[-1]
         self.assertEqual(msg.target, 0xFF)
+
+    def test_system_info_diag_and_config_are_cached(self) -> None:
+        info = types.SimpleNamespace(firmware_major=1, dc_motor_count=4)
+        config = types.SimpleNamespace(motor_dir_mask=3, neopixel_count=4)
+        diag = types.SimpleNamespace(free_sram=1234, tx_dropped_frames=5)
+
+        self.robot._on_sys_info(info)
+        self.robot._on_sys_config(config)
+        self.robot._on_sys_diag(diag)
+
+        self.assertIs(self.robot.get_system_info(), info)
+        self.assertIs(self.robot.get_system_config(), config)
+        self.assertIs(self.robot.get_system_diag(), diag)
 
     def test_odom_param_response_updates_local_snapshot(self) -> None:
         msg = types.SimpleNamespace(
@@ -249,6 +283,38 @@ class RobotApiTests(unittest.TestCase):
     def test_duplicate_odom_motor_pair_fails_fast(self) -> None:
         with self.assertRaisesRegex(ValueError, "must be different"):
             self.robot.set_odometry_parameters(left_motor_id=2, right_motor_id=2)
+
+    def test_request_pid_and_get_pid_cache(self) -> None:
+        self.robot.request_pid(2, self.hardware_map.DCPidLoop.VELOCITY)
+        req = self.node.publishers["/dc_pid_req"].published[-1]
+        self.assertEqual(req.motor_number, 2)
+        self.assertEqual(req.loop_type, int(self.hardware_map.DCPidLoop.VELOCITY))
+
+        rsp = types.SimpleNamespace(
+            motor_number=2,
+            loop_type=int(self.hardware_map.DCPidLoop.VELOCITY),
+            kp=1.0,
+            ki=2.0,
+            kd=3.0,
+            max_output=255.0,
+            max_integral=1000.0,
+        )
+        self.robot._on_dc_pid(rsp)
+        self.assertIs(self.robot.get_pid(2, self.hardware_map.DCPidLoop.VELOCITY), rsp)
+
+    def test_request_step_config_and_get_step_config_cache(self) -> None:
+        self.robot.request_step_config(3)
+        req = self.node.publishers["/step_config_req"].published[-1]
+        self.assertEqual(req.stepper_number, 3)
+
+        rsp = types.SimpleNamespace(stepper_number=3, max_velocity=800, acceleration=1200)
+        self.robot._on_step_config(rsp)
+        self.assertIs(self.robot.get_step_config(3), rsp)
+
+    def test_get_io_output_state_returns_cached_message(self) -> None:
+        msg = types.SimpleNamespace(led_brightness=[0, 1, 2, 3, 4], neo_pixel_count=2)
+        self.robot._on_io_output(msg)
+        self.assertIs(self.robot.get_io_output_state(), msg)
 
     def test_zero_brightness_defaults_to_led_off_mode(self) -> None:
         self.robot.set_led(1, 0)
