@@ -123,7 +123,12 @@ def run(robot: Robot) -> None:
             # by advancing it based on the current position (current_x, current_y) and an advance radius(20.0) mm.
             # This will take out the waypoints that are already passed (within 20mm of the current position), 
             # effectively "advancing" the path as the robot moves.
-            remaining_path = _advance_remaining_path(remaining_path, current_x, current_y, advance_radius)
+            remaining_path = robot._advance_remaining_path(
+                remaining_path=remaining_path,
+                x_mm=current_x,
+                y_mm=current_y,
+                advance_radius_mm=20.0
+            )
 
             # Step 4: Use the _lookahead_point() function to calculate the current pursuit point 
             # in your path, defined as (current_pursuit_x, current_pursuit_y)
@@ -136,8 +141,8 @@ def run(robot: Robot) -> None:
             # Step 5: Use the compute_velocity() function of the PurePursuitPlanner 
             # to calculate the linear and angular velocity commands
             linear_velocity_cmd, angular_velocity_cmd_rad_s = planner1.compute_velocity(
-                pose=(current_x, current_y, current_theta_rad)
-                waypoints=remaining_path
+                pose=(current_x, current_y, current_theta_rad),
+                waypoints=remaining_path,
                 max_linear=80.0
             )
 
