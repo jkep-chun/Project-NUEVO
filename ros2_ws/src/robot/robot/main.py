@@ -127,25 +127,39 @@ def run(robot: Robot) -> None:
 
             # Step 4: Use the _lookahead_point() function to calculate the current pursuit point 
             # in your path, defined as (current_pursuit_x, current_pursuit_y)
+            current_pursuit_x, current_pursuit_y = planner1._lookahead_point(
+                current_x,
+                current_y,
+                waypoints=remaining_path
+            )
 
             # Step 5: Use the compute_velocity() function of the PurePursuitPlanner 
             # to calculate the linear and angular velocity commands
+            linear_velocity_cmd, angular_velocity_cmd_rad_s = planner1.compute_velocity(
+                pose=(current_x, current_y, current_theta_rad)
+                waypoints=remaining_path
+                max_linear=80.0
+            )
 
             # Step 6: Use the robot.set_velocity() function to send the velocity commands to the robot.
+            robot.set_velocity(
+                linear_velocity_cmd,
+                math.degrees(angular_velocity_cmd_rad_s)
+            )
 
             # Step 7: Check if the current target point is reached using the 
             # CurrentTargetReached() function of the PurePursuitPlanner.
             # Just uncomment the following lines to enable the print statements.
-            """if planner1.CurrentTargetReached(current_pursuit_x, current_pursuit_y, current_x, current_y): 
+            if planner1.CurrentTargetReached(current_pursuit_x, current_pursuit_y, current_x, current_y): 
                 print("MOVING: Target reached! Stopping.")
                 robot.stop()
                 print("[FSM] IDLE")
-                state = "IDLE"       """        
+                state = "IDLE"        
             
             # Step 8: Print the current pose and current pursuit point to the console for debugging purposes.
             # Just uncomment the following lines to enable the print statements.
-            #print(f"Current Pose: ({current_x:.1f}, {current_y:.1f}, {current_theta_deg:.1f} deg)")
-            #print(f"Current Pursuit Point: ({current_pursuit_x:.1f}, {current_pursuit_y:.1f})")            
+            print(f"Current Pose: ({current_x:.1f}, {current_y:.1f}, {current_theta_deg:.1f} deg)")
+            print(f"Current Pursuit Point: ({current_pursuit_x:.1f}, {current_pursuit_y:.1f})")            
             print("Finish your code in Task 2") # Delete this line after you finish Task 2
             
         # FSM refresh rate control
