@@ -4,6 +4,7 @@ import os
 
 import rclpy
 from rclpy.node import Node
+from std_msgs.msg import String
 
 
 class VisionNode(Node):
@@ -17,6 +18,9 @@ class VisionNode(Node):
         self.image_topic = self.get_parameter("image_topic").value
         self.model_path = self.get_parameter("model_path").value
         self.labels_path = self.get_parameter("labels_path").value
+
+        self.publisher = self.create_publisher(String, "/face_detected", 10)
+        self.timer = self.create_timer(1.0, self.publish_test)
 
         self.get_logger().info("Vision node started")
         self.get_logger().info(f"Configured image topic: {self.image_topic}")
@@ -38,6 +42,12 @@ class VisionNode(Node):
             self.get_logger().warn("No labels_path provided yet")
 
         self.get_logger().info("Vision package scaffold ready for face recognition integration")
+
+    def publish_test(self):
+        msg = String()
+        msg.data = "test_face_detected"
+        self.publisher.publish(msg)
+        self.get_logger().info("Published test face_detected")
 
 
 def main(args=None) -> None:
