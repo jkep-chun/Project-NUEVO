@@ -77,6 +77,14 @@ class FirmwareState(IntEnum):
     ERROR   = 3
     ESTOP   = 4
 
+class ManipulationState(IntEnum):
+    PICKUP = 1
+    DEPOSIT = 2
+
+class FSMFlags:
+    obj: int
+    orderComplete: bool
+    mode: ManipulationState
 
 # =============================================================================
 # MotionHandle  (for high-level base motion)

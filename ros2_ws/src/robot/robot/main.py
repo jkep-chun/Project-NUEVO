@@ -28,7 +28,7 @@ import math
 
 POSITION_UNIT = Unit.MM
 WHEEL_DIAMETER = 74.0
-WHEEL_BASE = 333.0
+WHEEL_BASE = 337.8
 INITIAL_THETA_DEG = 90.0
 
 LEFT_WHEEL_MOTOR = Motor.DC_M1
@@ -54,11 +54,18 @@ def configure_robot(robot: Robot) -> None:
 def show_idle_leds(robot: Robot) -> None:
     robot.set_led(LED.GREEN, 0)
     robot.set_led(LED.ORANGE, 255)
+    robot.set_led(LED.RED, 0)
 
 
-def show_moving_leds(robot: Robot) -> None:
+def show_running_leds(robot: Robot) -> None:
     robot.set_led(LED.ORANGE, 0)
     robot.set_led(LED.GREEN, 255)
+    robot.set_led(LED.RED, 0)
+
+def show_error_leds(robot: Robot) -> None:
+    robot.set_led(LED.ORANGE, 0)
+    robot.set_led(LED.GREEN, 0)
+    robot.set_led(LED.RED, 255)
 
 
 def start_robot(robot: Robot) -> None:
@@ -80,70 +87,34 @@ def run(robot: Robot) -> None:
 
     while True:
         if state == "INIT":
+            # ENTRY
             start_robot(robot)
             print("[FSM] INIT (odometry reset)")
-            path_control_points = [ #Define your path control points here (x, y) in mm
-                (0.0, 0.0), # 1st point
-                (0.0, 500.0), # 2nd point
-                (500.0, 500.0), # 3rd point
-                (500.0, 0.0), # 4th point
-                (0.0, 0.0), # 5th point
-            ]    
-            path1 = path_control_points
-            #path1 = densify_polyline(path_control_points, spacing=20.0)
-            remaining_path = path1.copy() 
-            print("Path is ready, Entering IDLE state.")
+
+            # EXIT
             state = "IDLE"
 
         elif state == "IDLE":
+            # ENTRY
             show_idle_leds(robot)
-            print("[FSM] IDLE - Press BTN_1 to enter MOVING state.")
-            if robot.get_button(Button.BTN_1):
-                LOOKAHEAD_DIST = 100.0 # Lookahead distance in mm (adjust as needed)
-                planner1 = PurePursuitPlanner(
-                    lookahead_dist=LOOKAHEAD_DIST, 
-                    max_angular=1.5, # Max angular velocity in rad/s (adjust as needed)
-                    goal_tolerance=20.0, # Distance in mm to consider the target reached (adjust as needed)
-             )
-                print("Pure Pursuit Planner is initialized. Start Moving!")
-                print("[FSM] MOVING")
-                state = "MOVING"
-
-        elif state == "MOVING":
-            show_moving_leds(robot)
-            """Start your code here"""
-            # Step 1: Get current pose, including current coordinates and heading angle in degrees 
-            # using robot.get_pose() function. Store the values in current_x, current_y, and current_theta_deg variables. 
-
-            # Step 2: Convert current_theta_deg to radians and store it in current_theta_rad variable.  
-
-            # Step 3: Use the _advance_remaining_path() function to update the remaining_path variable 
-            # by advancing it based on the current position (current_x, current_y) and an advance radius(20.0) mm.
-            # This will take out the waypoints that are already passed (within 20mm of the current position), 
-            # effectively "advancing" the path as the robot moves.
-
-            # Step 4: Use the _lookahead_point() function to calculate the current pursuit point 
-            # in your path, defined as (current_pursuit_x, current_pursuit_y)
-
-            # Step 5: Use the compute_velocity() function of the PurePursuitPlanner 
-            # to calculate the linear and angular velocity commands
-
-            # Step 6: Use the robot.set_velocity() function to send the velocity commands to the robot.
-
-            # Step 7: Check if the current target point is reached using the 
-            # CurrentTargetReached() function of the PurePursuitPlanner.
-            # Just uncomment the following lines to enable the print statements.
-            """if planner1.CurrentTargetReached(current_pursuit_x, current_pursuit_y, current_x, current_y): 
-                print("MOVING: Target reached! Stopping.")
-                robot.stop()
-                print("[FSM] IDLE")
-                state = "IDLE"       """        
+            print("[FSM] IDLE")
+            # EXIT
             
-            # Step 8: Print the current pose and current pursuit point to the console for debugging purposes.
-            # Just uncomment the following lines to enable the print statements.
-            #print(f"Current Pose: ({current_x:.1f}, {current_y:.1f}, {current_theta_deg:.1f} deg)")
-            #print(f"Current Pursuit Point: ({current_pursuit_x:.1f}, {current_pursuit_y:.1f})")            
-            print("Finish your code in Task 2") # Delete this line after you finish Task 2
+
+        elif state == "NAV":
+            # ENTRY
+            show_running_leds(robot)
+            print("[FSM] NAV")
+            # LOOP
+            # EXIT
+
+        elif state == "WAIT":
+            show_running_leds(robot)
+            print("[FSM] WAIT (waiting for green light)")
+
+        elif state == "ERR":
+            show_error_leds(robot)
+            print("[FSM] ERR")
             
         # FSM refresh rate control
         next_tick += period

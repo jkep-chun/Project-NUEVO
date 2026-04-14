@@ -50,6 +50,7 @@ def main(args=None) -> None:
 
     try:
         from robot.main import run
+        # Calls main.py
         run(node.robot)
     except KeyboardInterrupt:
         _safe_log(node, "info", "robot node interrupted; shutting down")
