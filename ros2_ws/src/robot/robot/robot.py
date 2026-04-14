@@ -78,13 +78,23 @@ class FirmwareState(IntEnum):
     ESTOP   = 4
 
 class ManipulationState(IntEnum):
-    PICKUP = 1
+    OFF     = 0
+    PICKUP  = 1
     DEPOSIT = 2
 
+class CameraObject(IntEnum):
+    TRAFFIC_LIGHT   = 1
+    BURGER_BUN      = 2
+    BURGER_PATTY    = 3
+    FACE            = 4
+
 class FSMFlags:
-    obj: int
+    """
+    Flags to alert the FSM which state to enter next
+    """
+    target: CameraObject
     orderComplete: bool
-    mode: ManipulationState
+    manipulationMode: ManipulationState
 
 # =============================================================================
 # MotionHandle  (for high-level base motion)
@@ -225,6 +235,9 @@ class Robot:
         self._nav_thread: threading.Thread = None
         self._nav_cancel: threading.Event  = threading.Event()
         self._nav_done:   threading.Event  = threading.Event()
+
+        # ── FSM ───────────────────────────────────────────────────────────────
+        self._FSM_flags: FSMFlags = None
 
         # ── Publishers ────────────────────────────────────────────────────────
         self._dc_vel_pub   = node.create_publisher(DCSetVelocity,  '/dc_set_velocity',  10)
@@ -1352,6 +1365,28 @@ class Robot:
         with self._lock:
             return self._imu
 
+    # =============================================================================
+    # FSM
+    # =============================================================================
+
+    def get_FSM_target(self) -> CameraObject:
+        return self._FSM_flags.target
+    
+    def get_FSM_orderComplete(self) -> bool:
+        return self._FSM_flags.orderComplete
+    
+    def get_FSM_Manipulation_Mode(self) -> bool:
+        return self._FSM_flags.manipulationMode
+    
+    def set_FSM_target(self, target: CameraObject) -> None:
+        self._FSM_flags.target = target
+
+    def set_FSM_orderComplete(self, orderStatus: bool) -> None:
+        self._FSM_flags.orderComplete = orderStatus
+
+    def set_FSM_Manipulation_Mode(self, mode: ManipulationState) -> None:
+        self._FSM_flags.manipulationMode = mode
+
     # =========================================================================
     # Units
     # =========================================================================
@@ -1792,7 +1827,6 @@ class Robot:
 
 def _dist2d(x1: float, y1: float, x2: float, y2: float) -> float:
     return math.hypot(x2 - x1, y2 - y1)
-
 
 def _wrap_angle(a: float) -> float:
     """Wrap angle to [−π, π]."""

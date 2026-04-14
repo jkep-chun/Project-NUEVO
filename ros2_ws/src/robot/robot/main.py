@@ -15,7 +15,7 @@ To run:
 from __future__ import annotations
 import time
 
-from robot.robot import FirmwareState, Robot, Unit
+from robot.robot import FirmwareState, Robot, Unit, FSMFlags, ManipulationState, CameraObject
 from robot.hardware_map import Button, DEFAULT_FSM_HZ, LED, Motor
 from robot.util import densify_polyline
 from robot.path_planner import PurePursuitPlanner
@@ -90,7 +90,10 @@ def run(robot: Robot) -> None:
             # ENTRY
             start_robot(robot)
             print("[FSM] INIT (odometry reset)")
-
+            # DURING
+            robot.set_FSM_target(CameraObject.TRAFFIC_LIGHT)
+            robot.set_FSM_orderComplete(False)
+            robot.set_FSM_Manipulation_Mode(ManipulationState.OFF)
             # EXIT
             state = "IDLE"
 
@@ -98,6 +101,8 @@ def run(robot: Robot) -> None:
             # ENTRY
             show_idle_leds(robot)
             print("[FSM] IDLE")
+            # DURING
+            
             # EXIT
             
 
