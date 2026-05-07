@@ -42,6 +42,7 @@ from robot.hardware_map import (
     RIGHT_WHEEL_MOTOR,
     TAG_BODY_OFFSET_X_MM,
     TAG_BODY_OFFSET_Y_MM,
+    TAG_ID,
     WHEEL_BASE,
     WHEEL_DIAMETER,
 )
@@ -54,9 +55,6 @@ from robot.robot import FirmwareState, Robot
 # ros2_ws/src/robot/robot/hardware_map.py.
 ENABLE_LIDAR = True
 ENABLE_GPS = False
-
-# IMPORTANT: update TAG_ID to match your robot when GPS is enabled.
-TAG_ID = -1
 
 GOAL_MM = (610.0, 610.0*5)
 VELOCITY_MM_S = 150.0

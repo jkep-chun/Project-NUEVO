@@ -59,6 +59,7 @@ from robot.hardware_map import (
     RIGHT_WHEEL_MOTOR,
     TAG_BODY_OFFSET_X_MM,
     TAG_BODY_OFFSET_Y_MM,
+    TAG_ID,
     WHEEL_BASE,
     WHEEL_DIAMETER,
 )
@@ -71,12 +72,7 @@ from robot.robot import FirmwareState, Robot
 # ros2_ws/src/robot/robot/hardware_map.py. You can also just set those values
 # here locally if you want.
 ENABLE_LIDAR = False
-
 ENABLE_GPS = False
-
-# IMPORTANT: update TAG_ID to match the tag assigned to this robot.
-TAG_ID = -1
-
 
 # ---------------------------------------------------------------------------
 # Configuration — edit these to match your robot
