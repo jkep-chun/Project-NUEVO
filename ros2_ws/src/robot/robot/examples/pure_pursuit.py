@@ -31,6 +31,7 @@ from robot.hardware_map import (
     RIGHT_WHEEL_MOTOR,
     TAG_BODY_OFFSET_X_MM,
     TAG_BODY_OFFSET_Y_MM,
+    TAG_ID,
     WHEEL_BASE,
     WHEEL_DIAMETER,
 )
@@ -46,9 +47,6 @@ from robot.util import densify_polyline  # noqa: F401 - optional helper for stud
 
 ENABLE_LIDAR = False
 ENABLE_GPS   = False
-
-TAG_ID = -1  # IMPORTANT: set to the ArUco marker ID on your robot
-
 
 # ---------------------------------------------------------------------------
 # GPS tuning (only used when ENABLE_GPS = True)
