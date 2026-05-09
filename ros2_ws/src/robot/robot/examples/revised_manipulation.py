@@ -72,7 +72,7 @@ LIFT_LOWER_STEPS = 3000 # Relative, TODO: Measure
 LIFT_BUFFER_STEPS = -1000 # Relative, TODO: Measure
 LIFT_MAX_VELOCITY = 5000 # TODO: Verify
 LIFT_ACCELERATION = 1200 # TODO: Verify
-LIFT_HOME_VELOCITY = 500 # TODO: Verify
+LIFT_HOME_VELOCITY = 1000 # TODO: Verify
 LIFT_MOVE_TIMEOUT_S = 10.0
 
 
@@ -103,7 +103,7 @@ def home_lift(robot: Robot) -> bool:
     robot.step_enable(LIFT_STEPPER)
     ok = robot.step_home(
         LIFT_STEPPER,
-        direction=-1, # TODO: Verify
+        direction=1, # TODO: Verify
         home_velocity=LIFT_HOME_VELOCITY,
         backoff_steps=50,
         blocking=True,
@@ -188,15 +188,15 @@ def run(robot: Robot) -> None:
     while True:
         if state == "INIT":
             start_robot(robot)
-            home_arm(robot)
+            home_lift(robot)
             show_idle_leds(robot)
             print("[FSM] IDLE — press BTN_1 to run the pick sequence")
             print(
                 f"[CFG] gripper open={GRIPPER_OPEN_DEG:.0f}° close={GRIPPER_CLOSE_DEG:.0f}°"
             )
             print(
-                f"[CFG] lift raised={ARM_EXTEND_STEPS} steps "
-                f"home_vel={ARM_HOME_VELOCITY} steps/s"
+                f"[CFG] lift raised={LIFT_EXTEND_STEPS} steps "
+                f"home_vel={LIFT_HOME_VELOCITY} steps/s"
             )
             state = "IDLE"
 
