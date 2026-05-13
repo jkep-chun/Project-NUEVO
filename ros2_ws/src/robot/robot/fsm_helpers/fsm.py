@@ -13,7 +13,7 @@ from robot.fsm_helpers.firmware_helpers import configure_robot, start_robot, hom
 # from robot.fsm_helpers.task_planner import tasks
 tasks = [
     {"state": "WAIT", "trigger": "green_light"},
-    {"state": "NAV",  "visualTarget": "burger_bun", "goal_pose_mm": (1*610, 0, 90)},
+    {"state": "NAV",  "visualTarget": "burger_bun", "goal_pose_mm": (2*610, 0, 90)},
 ]
 
 # TODO: Move to some appropriate place
