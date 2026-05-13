@@ -18,31 +18,6 @@ class Motor(IntEnum):
     DC_M4 = 4
 
 
-# Shared robot hardware calibration.
-# Keep these values aligned with the physical robot so active examples and
-# Robot defaults can import one source of truth for the drive base, lidar
-# self-filtering, and GPS tag mounting geometry.
-POSITION_UNIT = Unit.MM
-WHEEL_DIAMETER = 76.2
-WHEEL_BASE = 337.8
-INITIAL_THETA_DEG = 90.0
-
-LEFT_WHEEL_MOTOR = Motor.DC_M1
-LEFT_WHEEL_DIR_INVERTED = False
-RIGHT_WHEEL_MOTOR = Motor.DC_M2
-RIGHT_WHEEL_DIR_INVERTED = True
-
-LIDAR_MOUNT_X_MM = 235.8
-LIDAR_MOUNT_Y_MM = 0.0
-LIDAR_MOUNT_THETA_DEG = 0.0
-LIDAR_RANGE_MIN_MM = 150.0
-LIDAR_RANGE_MAX_MM = 3500.0
-LIDAR_FOV_DEG = (-70, 70.0)
-
-TAG_BODY_OFFSET_X_MM = 150.7
-TAG_BODY_OFFSET_Y_MM = 0.0
-TAG_ID = 20
-
 class Stepper(IntEnum):
     STEPPER_1 = 1
     STEPPER_2 = 2
@@ -154,3 +129,43 @@ IO_OUTPUT_HZ = 10
 # Robot-side defaults should match the fastest upstream signal they consume.
 DEFAULT_FSM_HZ = IO_INPUT_HZ
 DEFAULT_NAV_HZ = KINEMATICS_HZ
+
+POSITION_UNIT = Unit.MM
+WHEEL_DIAMETER = 76.2
+WHEEL_BASE = 337.8
+INITIAL_THETA_DEG = 90.0
+
+# Differential drive configuration
+LEFT_WHEEL_MOTOR = Motor.DC_M1
+LEFT_WHEEL_DIR_INVERTED = False
+RIGHT_WHEEL_MOTOR = Motor.DC_M2
+RIGHT_WHEEL_DIR_INVERTED = True
+
+# Lidar
+LIDAR_MOUNT_X_MM = 235.8
+LIDAR_MOUNT_Y_MM = 0.0
+LIDAR_MOUNT_THETA_DEG = 0.0
+LIDAR_RANGE_MIN_MM = 150.0
+LIDAR_RANGE_MAX_MM = 3500.0
+LIDAR_FOV_DEG = (-70, 70.0)
+
+# Aruco tag
+TAG_BODY_OFFSET_X_MM = 150.7
+TAG_BODY_OFFSET_Y_MM = 0.0
+TAG_ID = 20
+
+# Servo 1 — gripper jaw
+GRIPPER_SERVO = ServoChannel.CH_1
+GRIPPER_OPEN_DEG = 0.0
+GRIPPER_CLOSE_DEG = 40.0 # TODO: Switch to limit switch feedback
+GRIPPER_SETTLE_S = 1.0
+
+# Stepper 1 — lift
+LIFT_STEPPER = Stepper.STEPPER_1
+LIFT_EXTEND_STEPS = -15000 # Absolute, TODO: Measure
+LIFT_LOWER_STEPS = 3000 # Relative, TODO: Measure
+LIFT_BUFFER_STEPS = -1000 # Relative, TODO: Measure
+LIFT_MAX_VELOCITY = 5000 # TODO: Verify
+LIFT_ACCELERATION = 1200 # TODO: Verify
+LIFT_HOME_VELOCITY = 1000 # TODO: Verify
+LIFT_MOVE_TIMEOUT_S = 10.0

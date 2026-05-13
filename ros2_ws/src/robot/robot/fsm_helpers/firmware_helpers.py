@@ -7,7 +7,12 @@ from robot.hardware_map import (
     RIGHT_WHEEL_MOTOR,
     WHEEL_BASE,
     WHEEL_DIAMETER,
-    TAG_ID
+    TAG_ID,
+    LIFT_STEPPER,
+    LIFT_HOME_VELOCITY,
+    GRIPPER_SERVO,
+    GRIPPER_CLOSE_DEG,
+    GRIPPER_OPEN_DEG
 )
 from robot.robot import FirmwareState, Robot
 
@@ -29,3 +34,26 @@ def start_robot(robot: Robot) -> None:
     robot.set_state(FirmwareState.RUNNING)
     robot.reset_odometry()
     robot.wait_for_pose_update(timeout=0.2)
+
+
+def home_lift(robot: Robot) -> bool:
+    print("[HOMING] — press BTN_3 to trigger the shared LIM1 input for stepper 1")
+    robot.step_enable(LIFT_STEPPER)
+    ok = robot.step_home(
+        LIFT_STEPPER,
+        direction=1,
+        home_velocity=LIFT_HOME_VELOCITY,
+        backoff_steps=50,
+        blocking=True,
+        timeout=15.0,
+    )
+    if not ok:
+        print("[warn] arm homing timed out — check LIM1 or use BTN_3 to simulate it")
+        robot.step_disable(LIFT_STEPPER)
+        return False
+    robot.step_disable(LIFT_STEPPER)
+    return True
+
+# def home_gripper(robot: Robot) -> bool:
+#     print("[HOMING] — gripper, BTN_4/LIM2")
+#     robot.enable_servo(GRIPPER_SERVO)
