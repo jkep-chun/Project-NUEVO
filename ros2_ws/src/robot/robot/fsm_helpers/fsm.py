@@ -18,8 +18,8 @@ tasks = [
 
 # TODO: Move to some appropriate place
 ENABLE_CAM = False
-TOLERANCE_MM = 20
-VELOCITY = 100.0
+TOLERANCE_MM = 70
+VELOCITY = 200.0
 
 
 class MissionFSM(RobotFSM):
