@@ -33,9 +33,9 @@ class RobotFSM:
         fsm.spin()              # blocks; runs update() at firmware-matched rate
     """
 
-    def __init__(self, robot: Robot, initial_state: str = "IDLE") -> None:
+    def __init__(self, robot: Robot, initial_state_str: str = "IDLE") -> None:
         self.robot = robot
-        self._state: str = initial_state
+        self._state_str: str = initial_state_str
         self._lock = threading.Lock()
         # {from_state: {event: (to_state, action, guard)}}
         self._transitions: dict[str, dict[str, tuple]] = {}
@@ -46,9 +46,9 @@ class RobotFSM:
 
     def add_transition(
         self,
-        from_state: str,
+        from_state_str: str,
         event: str,
-        to_state: str,
+        to_state_str: str,
         action: Callable[[], None] = None,
         guard: Callable[[], bool] = None,
     ) -> None:
@@ -61,7 +61,7 @@ class RobotFSM:
         action      — optional callable executed after the transition
         guard       — optional callable; transition is blocked if guard() returns False
         """
-        self._transitions.setdefault(from_state, {})[event] = (to_state, action, guard)
+        self._transitions.setdefault(from_state_str, {})[event] = (to_state_str, action, guard)
 
     # =========================================================================
     # Runtime
@@ -74,7 +74,7 @@ class RobotFSM:
         transition from the current state or if the guard rejected it.
         """
         with self._lock:
-            current = self._state
+            current = self._state_str
             trans = self._transitions.get(current, {}).get(event)
             if trans is None:
                 return False
@@ -82,16 +82,16 @@ class RobotFSM:
             if guard is not None and not guard():
                 return False
             self.on_exit(current)
-            self._state = to_state
+            self._state_str = to_state
 
         if action is not None:
             action()
         self.on_enter(to_state)
         return True
 
-    def get_state(self) -> str:
+    def get_state_str(self) -> str:
         with self._lock:
-            return self._state
+            return self._state_str
 
     def spin(self, hz: float = float(DEFAULT_FSM_HZ)) -> None:
         """
