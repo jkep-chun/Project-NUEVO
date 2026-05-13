@@ -24,7 +24,7 @@ VELOCITY = 200.0
 
 class MissionFSM(RobotFSM):
     def __init__(self, robot: Robot, task_list: list[dict]):
-        super().__init__(robot, initial_state="INIT")
+        super().__init__(robot, initial_state_str="INIT")
         self.tasks = task_list
         self.task_idx = 0
         self.drive_handle = None
