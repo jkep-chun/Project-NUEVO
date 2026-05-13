@@ -33,12 +33,15 @@ class MissionFSM(RobotFSM):
         # Condensed transitions
         self.add_transition("INIT", "start", "EXECUTE")
         self.add_transition("EXECUTE", "next", "EXECUTE", action=self._advance_task)
-        self.add_transition("EXECUTE", "done", "DONE")
+        self.add_transition("EXECUTE", "done", "DONE", action=self._enter_done)
         self.add_transition("EXECUTE", "error", "INIT")
 
     def _advance_task(self) -> None:
         self.task_idx += 1
         print(f"Advancing to task {self.task_idx}...")
+
+    def _enter_done(self) -> None:
+        print(">>> DONE")
 
     def on_enter(self, state: str) -> None:
         if state == "EXECUTE":
