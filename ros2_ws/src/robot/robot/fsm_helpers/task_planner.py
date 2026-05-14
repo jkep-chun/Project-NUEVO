@@ -15,15 +15,20 @@ POSE_STOP_SIGN = (2438.4, 609.6, -90)
 
 tasks = [
     {"state": "WAIT", "trigger": "green_light"},
-    {"state": "NAV",  "visualTarget": "burger_bun", "goal_pose_mm": POSE_BURGER_BUN},
-    # {"state": "MANIP", "cmd": "pick"},
-    # {"state": "NAV",  "visualTarget": "burger_patty", "goal_pose_mm": POSE_BURGER_PATTY},
-    # {"state": "MANIP", "cmd": "pick"},
-    # {"state": "NAV",  "visualTarget": "burger_bun", "goal_pose_mm": POSE_BURGER_BUN},
-    # {"state": "MANIP", "cmd": "pick"},
-    # {"state": "NAV",  "visualTarget": "customer_shown", "goal_pose_mm": POSE_CUSTOMER_TARGET},
-    # {"state": "IDENT"},
-    # {"state": "NAV",  "visualTarget": "customer", "goal_pose_mm": POSE_CUSTOMER_A},
-    # {"state": "MANIP", "cmd": "place"},
-    # {"state": "NAV",  "visualTarget": "stop_sign", "goal_pose_mm": POSE_STOP_SIGN},
+    {"state": "NAV", "goal_pose_mm": (0, 1*610.0, 0)}
 ]
+
+# tasks = [
+#     {"state": "WAIT", "trigger": "green_light"},
+#     {"state": "NAV",  "visualTarget": "burger_bun", "goal_pose_mm": POSE_BURGER_BUN},
+#     {"state": "MANIP", "cmd": "pick"},
+#     {"state": "NAV",  "visualTarget": "burger_patty", "goal_pose_mm": POSE_BURGER_PATTY},
+#     {"state": "MANIP", "cmd": "pick"},
+#     {"state": "NAV",  "visualTarget": "burger_bun", "goal_pose_mm": POSE_BURGER_BUN},
+#     {"state": "MANIP", "cmd": "pick"},
+#     {"state": "NAV",  "visualTarget": "customer_shown", "goal_pose_mm": POSE_CUSTOMER_TARGET},
+#     {"state": "IDENT"},
+#     {"state": "NAV",  "visualTarget": "customer", "goal_pose_mm": POSE_CUSTOMER_A},
+#     {"state": "MANIP", "cmd": "place"},
+#     {"state": "NAV",  "visualTarget": "stop_sign", "goal_pose_mm": POSE_STOP_SIGN},
+# ]
