@@ -50,8 +50,8 @@ class MissionFSM(RobotFSM):
             start_robot(self.robot)
             print(
                 "\n>>> INIT - FIRMWARE RUNNING" \
-                "\n\tBTN_1 -> EXECUTE" \
-                "\n\tBTN_2 -> HOMING"
+                "\n    BTN_1 -> EXECUTE" \
+                "\n    BTN_2 -> HOMING"
             )
 
         elif state == "HOMING":
