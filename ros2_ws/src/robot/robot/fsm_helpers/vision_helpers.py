@@ -1,7 +1,6 @@
 from robot.robot import Robot
 
-LIGHT_HOLD_SEC = 2.0
-VISION_STALE_SEC = 3.0
+VISION_STALE_SEC = 0.5  # TODO: Tune
 MIN_TRAFFIC_LIGHT_CONFIDENCE = 0.50
 
 
