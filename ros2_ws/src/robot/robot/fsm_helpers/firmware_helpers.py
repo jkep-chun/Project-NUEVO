@@ -53,7 +53,3 @@ def home_lift(robot: Robot) -> bool:
         return False
     robot.step_disable(LIFT_STEPPER)
     return True
-
-# def home_gripper(robot: Robot) -> bool:
-#     print("[HOMING] — gripper, BTN_4/LIM2")
-#     robot.enable_servo(GRIPPER_SERVO)

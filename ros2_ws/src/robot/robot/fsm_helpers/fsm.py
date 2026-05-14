@@ -9,17 +9,11 @@ from robot.robot_fsm import RobotFSM
 # TODO: change path when complete
 from robot.fsm_helpers.vision_helpers import find_traffic_light_color
 from robot.fsm_helpers.firmware_helpers import configure_robot, start_robot, home_lift
-"""Uncomment this when performing full FSM, otherwise just play with tasks below"""
-# from robot.fsm_helpers.task_planner import tasks
-tasks = [
-    {"state": "WAIT", "trigger": "green_light"},
-    {"state": "NAV",  "visualTarget": "burger_bun", "goal_pose_mm": (5*610, 0, 90)},
-]
+from robot.fsm_helpers.task_planner import tasks, TOLERANCE_MM, VELOCITY_MM_S
 
-# TODO: Move to some appropriate place
 ENABLE_CAM = False
-TOLERANCE_MM = 70
-VELOCITY = 200.0
+ENABLE_GRIPPER = False
+ENABLE_LIFT = False
 
 
 class MissionFSM(RobotFSM):
@@ -28,6 +22,8 @@ class MissionFSM(RobotFSM):
         self.tasks = task_list
         self.task_idx = 0
         self.drive_handle = None
+        self.nav_stage = None
+        self.manip_stage = None
         self.timer_start = None
         
         # Condensed transitions
@@ -47,6 +43,8 @@ class MissionFSM(RobotFSM):
         if state == "EXECUTE":
             self.timer_start = None # Reset timer for the new task
             self.drive_handle = None # Reset drive handle
+            self.nav_stage = None
+            self.manip_stage = None
             if self.task_idx < len(self.tasks):
                 print(f"\n>>> EXECUTING TASK {self.task_idx}: {self.tasks[self.task_idx]}")
             else:
@@ -79,9 +77,12 @@ class MissionFSM(RobotFSM):
 
     def _handle_wait(self, params: dict) -> None:
         if params.get("trigger") == "green_light":
-            if not ENABLE_CAM and self.robot.was_button_pressed(Button.BTN_1):
-                self.trigger("next")
-            elif ENABLE_CAM and find_traffic_light_color(self.robot) == "green":
+            if not ENABLE_CAM:
+                if self.robot.was_button_pressed(Button.BTN_1):
+                    print("trigger - BTN_1 (debug)")
+                    self.trigger("next")
+            elif find_traffic_light_color(self.robot) == "green":
+                print("trigger - green light detected")
                 self.trigger("next")
 
     def _handle_nav(self, params: dict) -> None:
@@ -93,7 +94,7 @@ class MissionFSM(RobotFSM):
                 self.drive_handle = self.robot.move_to(
                     x=x,
                     y=y,
-                    velocity=VELOCITY,
+                    velocity=VELOCITY_MM_S,
                     tolerance=TOLERANCE_MM,
                     blocking=False,
                     timeout=None
