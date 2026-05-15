@@ -25,12 +25,13 @@ class MissionFSM(RobotFSM):
     def __init__(self, robot: Robot, task_list: list[dict]):
         super().__init__(robot, initial_state_str="INIT")
         self.tasks = task_list
-        self.task_idx = 0
+        self.task_idx = None
         self.drive_handle = None
         self.homing_handle = None
         self.nav_stage = None
         # self.manip_stage = None
         self.timer_start = None
+        self.execution_print_period = 1.0
         
         self.add_transition("INIT", "to_execute", "EXECUTE")
         self.add_transition("INIT", "to_homing", "HOMING")
@@ -46,6 +47,7 @@ class MissionFSM(RobotFSM):
 
     def on_enter(self, state: str) -> None:
         if state == "INIT":
+            self.task_idx = 0
             print("\n>>> INIT - STARTING ROBOT")
             start_robot(self.robot)
             print(
@@ -59,7 +61,7 @@ class MissionFSM(RobotFSM):
             print("\n>>> HOMING - BEGIN SEQUENCE")
 
         elif state == "EXECUTE":
-            self.timer_start = None # Reset timer for the new task
+            self.timer_start = time.monotonic() # Reset timer for the new task
             self.drive_handle = None # Reset drive handle
             self.nav_stage = NavStage.POSITION
             # self.manip_stage = None
@@ -125,6 +127,11 @@ class MissionFSM(RobotFSM):
             self.trigger("next")
             return
         
+        time_now = time.monotonic()
+        if time_now - self.timer_start >= self.execution_print_period:
+            status = self.drive_handle.is_done() if self.drive_handle else "STARTING"
+            print(f"[Task {self.task_idx}] stage: {self.nav_stage.name}, done: {status}")
+            self.timer_start = time_now
         x, y, theta = params.get("goal_pose_mm")
 
         if self.nav_stage == NavStage.POSITION:
