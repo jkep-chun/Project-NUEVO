@@ -33,6 +33,10 @@ def configure_robot(robot: Robot) -> None:
 def start_robot(robot: Robot) -> None:
     robot.set_state(FirmwareState.RUNNING)
     robot.reset_odometry()
+    if not robot.wait_for_odometry_reset(timeout=2.0):
+        print("ODOMETRY RESET TIMEOUT")
+    else:
+        print("ODOMETRY RESET SUCCESS")
     robot.wait_for_pose_update(timeout=0.2)
 
 

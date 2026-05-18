@@ -38,6 +38,8 @@ class MissionFSM(RobotFSM):
         # self.manip_stage = None
         self.timer_start = None
         self.execution_print_period = 1.0
+        self.task = None
+        self.task_type = None
         
         self.add_transition("INIT", "to_execute", "EXECUTE")
         self.add_transition("INIT", "to_homing", "HOMING")
@@ -110,9 +112,16 @@ class MissionFSM(RobotFSM):
 
         elif state == "EXECUTE":
             self.timer_start = time.monotonic() # Reset timer for the new task
-            self.drive_handle = None # Reset drive handle
-            self.nav_stage = NavStage.POSITION
-            # self.manip_stage = None
+            self.task = self.tasks[self.task_idx]
+            self.task_type = self.task.get("state")
+
+            if self.task_type == "NAV":
+                self.drive_handle = None # Reset drive handle
+                self.nav_stage = NavStage.POSITION
+            
+            # elif self.task_type == "MANIP":
+            #     self.manip_stage = None
+
             if self.task_idx < len(self.tasks):
                 print(f"\n>>> EXECUTE - TASK {self.task_idx}: {self.tasks[self.task_idx]}")
             else:
@@ -146,16 +155,13 @@ class MissionFSM(RobotFSM):
                 self.trigger("to_init")
         
         elif state_str == "EXECUTE":
-            task = self.tasks[self.task_idx]
-            task_type = task.get("state")
-
-            if task_type == "WAIT":
-                self._handle_wait(task)
-            elif task_type == "NAV":
-                self._handle_nav(task)
-            # elif task_type == "MANIP":
+            if self.task_type == "WAIT":
+                self._handle_wait(self.task)
+            elif self.task_type == "NAV":
+                self._handle_nav(self.task)
+            # elif self.task_type == "MANIP":
             #     self._handle_manip(task)
-            # elif task_type == "IDENT":
+            # elif self.task_type == "IDENT":
             #     self._handle_ident(task)
 
         elif state_str == "DONE":
