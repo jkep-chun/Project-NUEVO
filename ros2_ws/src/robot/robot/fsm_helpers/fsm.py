@@ -1,7 +1,13 @@
 from __future__ import annotations
 import time
+import sqlite3
+import os
+from datetime import datetime
 
 from robot.hardware_map import Button
+
+LOG_DIR = "/runtime_output/logs"
+
 from robot.robot import Robot
 from robot.robot_fsm import RobotFSM
 
@@ -32,6 +38,8 @@ class MissionFSM(RobotFSM):
         # self.manip_stage = None
         self.timer_start = None
         self.execution_print_period = 1.0
+        self.task = None
+        self.task_type = None
         
         self.add_transition("INIT", "to_execute", "EXECUTE")
         self.add_transition("INIT", "to_homing", "HOMING")
@@ -41,11 +49,53 @@ class MissionFSM(RobotFSM):
         self.add_transition("EXECUTE", "error", "INIT")
         self.add_transition("DONE", "to_init", "INIT")
 
+        # SQLITE3 LOGGING SETUP
+        self.conn = None
+        self._setup_logging()
+
+    def _setup_logging(self) -> None:
+        """Initialize sqlite3 database for logging."""
+        os.makedirs(LOG_DIR, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        db_path = os.path.join(LOG_DIR, f"fsm_log_{timestamp}.db")
+        print(f"Logging mission data to: {db_path}")
+        
+        self.conn = sqlite3.connect(db_path)
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS fsm_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp REAL,
+                state TEXT,
+                event TEXT,
+                task_idx INTEGER,
+                x REAL,
+                y REAL,
+                theta REAL
+            )
+        ''')
+        self.conn.commit()
+
+    def _log(self, event: str = "UPDATE") -> None:
+        """Log current state and telemetry to sqlite3."""
+        if self.conn is None:
+            return
+        
+        x, y, theta = self.robot.get_pose()
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            INSERT INTO fsm_log (timestamp, state, event, task_idx, x, y, theta)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (time.time(), self.get_state_str(), event, self.task_idx, x, y, theta))
+        self.conn.commit()
+
     def _advance_task(self) -> None:
         self.task_idx += 1
         print(f"Advancing to task {self.task_idx}...")
+        self._log(event="ADVANCE_TASK")
 
     def on_enter(self, state: str) -> None:
+        self._log(event=f"ENTER_{state}")
         if state == "INIT":
             self.task_idx = 0
             print("\n>>> INIT - STARTING ROBOT")
@@ -62,16 +112,26 @@ class MissionFSM(RobotFSM):
 
         elif state == "EXECUTE":
             self.timer_start = time.monotonic() # Reset timer for the new task
-            self.drive_handle = None # Reset drive handle
-            self.nav_stage = NavStage.POSITION
-            # self.manip_stage = None
+
             if self.task_idx < len(self.tasks):
                 print(f"\n>>> EXECUTE - TASK {self.task_idx}: {self.tasks[self.task_idx]}")
+                self.task = self.tasks[self.task_idx]
+                self.task_type = self.task.get("state")
+
+                if self.task_type == "NAV":
+                    self.drive_handle = None # Reset drive handle
+                    self.nav_stage = NavStage.POSITION
+                
+                # elif self.task_type == "MANIP":
+                #     self.manip_stage = None
             else:
                 self.trigger("to_done")
 
         elif state == "DONE":
             self.robot.shutdown()
+            if self.conn:
+                self.conn.close()
+                self.conn = None
             # self.robot.step_disable()
             # self.robot.disable_servo()
             print("\n>>> DONE - TASKS COMPLETE; PRESS BTN_1 TO REINITIALIZE")
@@ -95,20 +155,18 @@ class MissionFSM(RobotFSM):
                 self.trigger("to_init")
         
         elif state_str == "EXECUTE":
-            task = self.tasks[self.task_idx]
-            task_type = task.get("state")
-
-            if task_type == "WAIT":
-                self._handle_wait(task)
-            elif task_type == "NAV":
-                self._handle_nav(task)
-            # elif task_type == "MANIP":
+            if self.task_type == "WAIT":
+                self._handle_wait(self.task)
+            elif self.task_type == "NAV":
+                self._handle_nav(self.task)
+            # elif self.task_type == "MANIP":
             #     self._handle_manip(task)
-            # elif task_type == "IDENT":
+            # elif self.task_type == "IDENT":
             #     self._handle_ident(task)
 
         elif state_str == "DONE":
             if self.robot.was_button_pressed(Button.BTN_1):
+                self._setup_logging()
                 self.trigger("to_init")
 
 
@@ -127,20 +185,22 @@ class MissionFSM(RobotFSM):
             self.trigger("next")
             return
         
+        x, y, theta = self.robot.get_pose()
         time_now = time.monotonic()
         if time_now - self.timer_start >= self.execution_print_period:
             status = self.drive_handle.is_done() if self.drive_handle else "STARTING"
-            print(f"[Task {self.task_idx}] stage: {self.nav_stage.name}, done: {status}")
+            print(f"[Task {self.task_idx}] stage: {self.nav_stage.name}, done: {status}, pose: ({x:.2f},{y:.2f},{theta:.2f})")
+            self._log(event="TELEMETRY")
             self.timer_start = time_now
-        x, y, theta = params.get("goal_pose_mm")
+        goal_x, goal_y, goal_theta = params.get("goal_pose_mm")
 
         if self.nav_stage == NavStage.POSITION:
             if self.drive_handle is None:
-                print(f"Driving toward: ({x/1000.0},{y/1000.0})")
+                print(f"Driving toward: ({goal_x:.2f},{goal_y:.2f})")
                 # TODO: Switch to APF or pure pursuit follower
                 self.drive_handle = self.robot.move_to(
-                    x=x,
-                    y=y,
+                    x=goal_x,
+                    y=goal_y,
                     velocity=VELOCITY_MM_S,
                     tolerance=TOLERANCE_MM,
                     blocking=False,
@@ -148,14 +208,17 @@ class MissionFSM(RobotFSM):
                 )
         
             if self.drive_handle.is_done():
+                print(f"[Task {self.task_idx}] stage: {self.nav_stage.name}, done: {True}, pose: ({x:.2f},{y:.2f},{theta:.2f})")
+                self._log(event="TELEMETRY")
+
                 self.nav_stage = NavStage.HEADING
                 self.drive_handle = None
 
         if self.nav_stage == NavStage.HEADING:
             if self.drive_handle is None:
-                print(f"Heading toward: {theta}")
+                print(f"Heading toward: {goal_theta}")
                 self.drive_handle = self.robot.turn_to(
-                    angle_deg=theta,
+                    angle_deg=goal_theta,
                     blocking=False,
                     tolerance_deg=2.0,
                     timeout=None
