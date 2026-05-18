@@ -127,20 +127,21 @@ class MissionFSM(RobotFSM):
             self.trigger("next")
             return
         
+        x, y, theta = self.robot.get_pose()
         time_now = time.monotonic()
         if time_now - self.timer_start >= self.execution_print_period:
             status = self.drive_handle.is_done() if self.drive_handle else "STARTING"
-            print(f"[Task {self.task_idx}] stage: {self.nav_stage.name}, done: {status}")
+            print(f"[Task {self.task_idx}] stage: {self.nav_stage.name}, done: {status}, pose: ({x},{y},{theta})")
             self.timer_start = time_now
-        x, y, theta = params.get("goal_pose_mm")
+        goal_x, goal_y, goal_theta = params.get("goal_pose_mm")
 
         if self.nav_stage == NavStage.POSITION:
             if self.drive_handle is None:
                 print(f"Driving toward: ({x/1000.0},{y/1000.0})")
                 # TODO: Switch to APF or pure pursuit follower
                 self.drive_handle = self.robot.move_to(
-                    x=x,
-                    y=y,
+                    x=goal_x,
+                    y=goal_y,
                     velocity=VELOCITY_MM_S,
                     tolerance=TOLERANCE_MM,
                     blocking=False,
@@ -153,9 +154,9 @@ class MissionFSM(RobotFSM):
 
         if self.nav_stage == NavStage.HEADING:
             if self.drive_handle is None:
-                print(f"Heading toward: {theta}")
+                print(f"Heading toward: {goal_theta}")
                 self.drive_handle = self.robot.turn_to(
-                    angle_deg=theta,
+                    angle_deg=goal_theta,
                     blocking=False,
                     tolerance_deg=2.0,
                     timeout=None
