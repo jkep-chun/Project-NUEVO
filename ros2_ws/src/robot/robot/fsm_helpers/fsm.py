@@ -1,7 +1,13 @@
 from __future__ import annotations
 import time
+import sqlite3
+import os
+from datetime import datetime
 
 from robot.hardware_map import Button
+
+LOG_DIR = "/runtime_output/logs"
+
 from robot.robot import Robot
 from robot.robot_fsm import RobotFSM
 
@@ -41,11 +47,53 @@ class MissionFSM(RobotFSM):
         self.add_transition("EXECUTE", "error", "INIT")
         self.add_transition("DONE", "to_init", "INIT")
 
+        # SQLITE3 LOGGING SETUP
+        self.conn = None
+        self._setup_logging()
+
+    def _setup_logging(self) -> None:
+        """Initialize sqlite3 database for logging."""
+        os.makedirs(LOG_DIR, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        db_path = os.path.join(LOG_DIR, f"fsm_log_{timestamp}.db")
+        print(f"Logging mission data to: {db_path}")
+        
+        self.conn = sqlite3.connect(db_path)
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS fsm_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp REAL,
+                state TEXT,
+                event TEXT,
+                task_idx INTEGER,
+                x REAL,
+                y REAL,
+                theta REAL
+            )
+        ''')
+        self.conn.commit()
+
+    def _log(self, event: str = "UPDATE") -> None:
+        """Log current state and telemetry to sqlite3."""
+        if self.conn is None:
+            return
+        
+        x, y, theta = self.robot.get_pose()
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            INSERT INTO fsm_log (timestamp, state, event, task_idx, x, y, theta)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (time.time(), self.get_state_str(), event, self.task_idx, x, y, theta))
+        self.conn.commit()
+
     def _advance_task(self) -> None:
         self.task_idx += 1
         print(f"Advancing to task {self.task_idx}...")
+        self._log(event="ADVANCE_TASK")
 
     def on_enter(self, state: str) -> None:
+        self._log(event=f"ENTER_{state}")
         if state == "INIT":
             self.task_idx = 0
             print("\n>>> INIT - STARTING ROBOT")
@@ -72,6 +120,9 @@ class MissionFSM(RobotFSM):
 
         elif state == "DONE":
             self.robot.shutdown()
+            if self.conn:
+                self.conn.close()
+                self.conn = None
             # self.robot.step_disable()
             # self.robot.disable_servo()
             print("\n>>> DONE - TASKS COMPLETE; PRESS BTN_1 TO REINITIALIZE")
@@ -109,6 +160,7 @@ class MissionFSM(RobotFSM):
 
         elif state_str == "DONE":
             if self.robot.was_button_pressed(Button.BTN_1):
+                self._setup_logging()
                 self.trigger("to_init")
 
 
@@ -132,6 +184,7 @@ class MissionFSM(RobotFSM):
         if time_now - self.timer_start >= self.execution_print_period:
             status = self.drive_handle.is_done() if self.drive_handle else "STARTING"
             print(f"[Task {self.task_idx}] stage: {self.nav_stage.name}, done: {status}, pose: ({x},{y},{theta})")
+            self._log(event="TELEMETRY")
             self.timer_start = time_now
         goal_x, goal_y, goal_theta = params.get("goal_pose_mm")
 
