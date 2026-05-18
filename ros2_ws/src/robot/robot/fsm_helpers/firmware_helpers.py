@@ -31,15 +31,19 @@ def configure_robot(robot: Robot) -> None:
 
 
 def start_robot(robot: Robot) -> None:
+    current = robot.get_state()
+    if current in (FirmwareState.ESTOP, FirmwareState.ERROR):
+        robot.reset_estop()
     robot.set_state(FirmwareState.RUNNING)
+
+
+def reset_mission_pose(robot: Robot) -> None:
     robot.reset_odometry()
     if not robot.wait_for_odometry_reset(timeout=2.0):
+        print("[warn] odometry reset not confirmed within 2.0s; continuing with latest pose")
+        robot.wait_for_pose_update(timeout=0.5)
         x, y, theta = robot.get_pose()
-        print(f"ODOMETRY RESET TIMEOUT: ({x:.1f}, {y:.1f}, {theta:.1f})")
-    else:
-        robot.wait_for_pose_update(timeout=0.2)
-        x, y, theta = robot.get_pose()
-        print(f"ODOMETRY RESET SUCCESS: ({x:.1f}, {y:.1f}, {theta:.1f})")
+        print(f"POSE: ({x:.1f}, {y:.1f}, {theta:.1f})")
 
 
 class HomingHandle:
