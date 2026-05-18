@@ -100,6 +100,7 @@ class MissionFSM(RobotFSM):
             self.task_idx = 0
             print("\n>>> INIT - STARTING ROBOT")
             start_robot(self.robot)
+            reset_mission_pose(self.robot)
             print(
                 "\n>>> INIT - FIRMWARE RUNNING" \
                 "\n    BTN_1 -> EXECUTE" \
@@ -192,19 +193,33 @@ class MissionFSM(RobotFSM):
             print(f"[Task {self.task_idx}] stage: {self.nav_stage.name}, done: {status}, pose: ({x:.2f},{y:.2f},{theta:.2f})")
             self._log(event="TELEMETRY")
             self.timer_start = time_now
-        goal_x, goal_y, goal_theta = params.get("goal_pose_mm")
+        g_x, g_y, g_theta = params.get("goal_pose_mm")
 
         if self.nav_stage == NavStage.POSITION:
             if self.drive_handle is None:
-                print(f"Driving toward: ({goal_x:.2f},{goal_y:.2f})")
+                print(f"Driving toward: ({g_x:.2f},{g_y:.2f})")
                 # TODO: Switch to APF or pure pursuit follower
-                self.drive_handle = self.robot.move_to(
-                    x=goal_x,
-                    y=goal_y,
+                # self.drive_handle = self.robot.move_to(
+                #     x=g_x,
+                #     y=g_y,
+                #     velocity=VELOCITY_MM_S,
+                #     tolerance=TOLERANCE_MM,
+                #     blocking=False,
+                #     timeout=None
+                # )
+                self.drive_handle = self.robot.lapf_to_goal(
+                    x=g_x,
+                    y=g_y,
                     velocity=VELOCITY_MM_S,
                     tolerance=TOLERANCE_MM,
-                    blocking=False,
-                    timeout=None
+                    leash_length_mm=50,
+                    repulsion_range_mm=350.0,
+                    target_speed_mm_s=200.0,
+                    repulsion_gain=550.0,
+                    attraction_gain=1.0,
+                    force_ema_alpha=0.35,
+                    inflation_margin_mm=150.0,
+                    leash_half_angle_deg=25.0
                 )
         
             if self.drive_handle.is_done():
@@ -216,9 +231,9 @@ class MissionFSM(RobotFSM):
 
         if self.nav_stage == NavStage.HEADING:
             if self.drive_handle is None:
-                print(f"Heading toward: {goal_theta}")
+                print(f"Heading toward: {g_theta}")
                 self.drive_handle = self.robot.turn_to(
-                    angle_deg=goal_theta,
+                    angle_deg=g_theta,
                     blocking=False,
                     tolerance_deg=2.0,
                     timeout=None
