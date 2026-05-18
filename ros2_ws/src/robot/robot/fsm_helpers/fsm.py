@@ -208,6 +208,9 @@ class MissionFSM(RobotFSM):
                 )
         
             if self.drive_handle.is_done():
+                print(f"[Task {self.task_idx}] stage: {self.nav_stage.name}, done: {True}, pose: ({x:.2f},{y:.2f},{theta:.2f})")
+                self._log(event="TELEMETRY")
+
                 self.nav_stage = NavStage.HEADING
                 self.drive_handle = None
 
