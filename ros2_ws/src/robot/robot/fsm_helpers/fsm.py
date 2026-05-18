@@ -112,18 +112,18 @@ class MissionFSM(RobotFSM):
 
         elif state == "EXECUTE":
             self.timer_start = time.monotonic() # Reset timer for the new task
-            self.task = self.tasks[self.task_idx]
-            self.task_type = self.task.get("state")
-
-            if self.task_type == "NAV":
-                self.drive_handle = None # Reset drive handle
-                self.nav_stage = NavStage.POSITION
-            
-            # elif self.task_type == "MANIP":
-            #     self.manip_stage = None
 
             if self.task_idx < len(self.tasks):
                 print(f"\n>>> EXECUTE - TASK {self.task_idx}: {self.tasks[self.task_idx]}")
+                self.task = self.tasks[self.task_idx]
+                self.task_type = self.task.get("state")
+
+                if self.task_type == "NAV":
+                    self.drive_handle = None # Reset drive handle
+                    self.nav_stage = NavStage.POSITION
+                
+                # elif self.task_type == "MANIP":
+                #     self.manip_stage = None
             else:
                 self.trigger("to_done")
 
@@ -189,14 +189,14 @@ class MissionFSM(RobotFSM):
         time_now = time.monotonic()
         if time_now - self.timer_start >= self.execution_print_period:
             status = self.drive_handle.is_done() if self.drive_handle else "STARTING"
-            print(f"[Task {self.task_idx}] stage: {self.nav_stage.name}, done: {status}, pose: ({x},{y},{theta})")
+            print(f"[Task {self.task_idx}] stage: {self.nav_stage.name}, done: {status}, pose: ({x:.2f},{y:.2f},{theta:.2f})")
             self._log(event="TELEMETRY")
             self.timer_start = time_now
         goal_x, goal_y, goal_theta = params.get("goal_pose_mm")
 
         if self.nav_stage == NavStage.POSITION:
             if self.drive_handle is None:
-                print(f"Driving toward: ({x/1000.0},{y/1000.0})")
+                print(f"Driving toward: ({goal_x:.2f},{goal_y:.2f})")
                 # TODO: Switch to APF or pure pursuit follower
                 self.drive_handle = self.robot.move_to(
                     x=goal_x,
