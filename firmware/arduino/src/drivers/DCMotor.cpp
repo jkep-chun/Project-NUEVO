@@ -526,6 +526,18 @@ void DCMotor::service() {
 
     uint8_t nextDrive = 0;
     uint16_t nextDuty = 0;
+
+    // Jacob Chun: Adding deadband rejection
+    if (nextPwm != 0) {
+        const int16_t deadband = 85; // Tune this
+        if (nextPwm > 0) nextPwm += deadband;
+        else nextPwm -= deadband;
+
+        // Clamp
+        if (nextPwm > 255) nextPwm = 255;
+        else if (nextPwm < -255) nextPwm = -255;
+    }
+
     prepareOutput(nextPwm, nextDrive, nextDuty);
 
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
