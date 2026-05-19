@@ -8,13 +8,27 @@ from robot.hardware_map import (
     WHEEL_BASE,
     WHEEL_DIAMETER,
     TAG_ID,
+    TAG_BODY_OFFSET_X_MM,
+    TAG_BODY_OFFSET_Y_MM,
     LIFT_STEPPER,
     LIFT_HOME_VELOCITY,
-    GRIPPER_SERVO,
-    GRIPPER_CLOSE_DEG,
-    GRIPPER_OPEN_DEG
+    Motor,
+    DCPidLoop,
+    LED,
+
+    LIDAR_FOV_DEG,
+    LIDAR_MOUNT_THETA_DEG,
+    LIDAR_MOUNT_X_MM,
+    LIDAR_MOUNT_Y_MM,
+    LIDAR_RANGE_MAX_MM,
+    LIDAR_RANGE_MIN_MM,
+
+
 )
 from robot.robot import FirmwareState, Robot
+
+ENABLE_LIDAR = True
+ENABLE_GPS = False
 
 def configure_robot(robot: Robot) -> None:
     robot.set_unit(POSITION_UNIT)
@@ -27,20 +41,62 @@ def configure_robot(robot: Robot) -> None:
         right_motor_id=RIGHT_WHEEL_MOTOR,
         right_motor_dir_inverted=RIGHT_WHEEL_DIR_INVERTED,
     )
-    robot.set_tracked_tag_id(TAG_ID)
+
+    if ENABLE_LIDAR:
+        robot.enable_lidar()
+        robot.set_lidar_mount(
+            x_mm=LIDAR_MOUNT_X_MM,
+            y_mm=LIDAR_MOUNT_Y_MM,
+            theta_deg=LIDAR_MOUNT_THETA_DEG,
+        )
+        robot.set_lidar_filter(
+            range_min_mm=LIDAR_RANGE_MIN_MM,
+            range_max_mm=LIDAR_RANGE_MAX_MM,
+            fov_deg=LIDAR_FOV_DEG,
+        )
+        robot.start_lidar_world_publisher()
+        print("[sensor] lidar enabled — subscribing to /scan")
+
+    if ENABLE_GPS:
+        robot.enable_gps()
+        robot.set_tracked_tag_id(TAG_ID)
+        robot.set_tag_body_offset(TAG_BODY_OFFSET_X_MM, TAG_BODY_OFFSET_Y_MM)
+        print(f"[sensor] GPS enabled — tracking ArUco tag {TAG_ID}")
 
 
 def start_robot(robot: Robot) -> None:
+    current = robot.get_state()
+    if current in (FirmwareState.ESTOP, FirmwareState.ERROR):
+        robot.reset_estop()
     robot.set_state(FirmwareState.RUNNING)
+    robot.set_pid_gains(Motor.DC_M1, DCPidLoop.VELOCITY, 0.17, 0.09, 0.0)
+    robot.set_pid_gains(Motor.DC_M2, DCPidLoop.VELOCITY, 0.17, 0.09, 0.0)
+
+
+def reset_mission_pose(robot: Robot) -> None:
     robot.reset_odometry()
     if not robot.wait_for_odometry_reset(timeout=2.0):
+        print("[warn] odometry reset not confirmed within 2.0s; continuing with latest pose")
+        robot.wait_for_pose_update(timeout=0.5)
         x, y, theta = robot.get_pose()
-        print(f"ODOMETRY RESET TIMEOUT: ({x:.1f}, {y:.1f}, {theta:.1f})")
-    else:
-        robot.wait_for_pose_update(timeout=0.2)
-        x, y, theta = robot.get_pose()
-        print(f"ODOMETRY RESET SUCCESS: ({x:.1f}, {y:.1f}, {theta:.1f})")
+        print(f"POSE: ({x:.1f}, {y:.1f}, {theta:.1f})")
 
+
+def show_idle_leds(robot: Robot) -> None:
+    robot.set_led(LED.ORANGE, 200)
+    robot.set_led(LED.GREEN, 0)
+
+
+def show_running_leds(robot: Robot) -> None:
+    robot.set_led(LED.ORANGE, 0)
+    robot.set_led(LED.GREEN, 200)
+
+
+def cancel_motion(robot: Robot, handle) -> None:
+    if handle is not None:
+        handle.cancel()
+        handle.wait(timeout=1.0)
+    robot.stop()
 
 class HomingHandle:
     """
