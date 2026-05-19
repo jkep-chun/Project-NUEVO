@@ -19,6 +19,7 @@ from robot.hardware_map import (
 )
 from robot.robot import FirmwareState, Robot
 
+DUR = 6.0
 
 def configure_robot(robot: Robot) -> None:
     robot.set_unit(POSITION_UNIT)
@@ -38,8 +39,8 @@ def start_robot(robot: Robot) -> None:
     if current in (FirmwareState.ESTOP, FirmwareState.ERROR):
         robot.reset_estop()
     robot.set_state(FirmwareState.RUNNING)
-    robot.set_pid_gains(Motor.DC_M1, DCPidLoop.VELOCITY, 0.1, 0.0, 0.0)
-    robot.set_pid_gains(Motor.DC_M2, DCPidLoop.VELOCITY, 0.1, 0.0, 0.0)
+    robot.set_pid_gains(Motor.DC_M1, DCPidLoop.VELOCITY, 0.17, 0.09, 0.0)
+    robot.set_pid_gains(Motor.DC_M2, DCPidLoop.VELOCITY, 0.17, 0.09, 0.0)
 
 
 def show_idle_leds(robot: Robot) -> None:
@@ -50,18 +51,6 @@ def show_idle_leds(robot: Robot) -> None:
 def show_running_leds(robot: Robot) -> None:
     robot.set_led(LED.ORANGE, 0)
     robot.set_led(LED.GREEN, 200)
-
-
-def cancel_motion(handle) -> None:
-    if handle is None:
-        return
-    handle.cancel()
-    handle.wait(timeout=1.0)
-
-
-def print_status(robot: Robot, label: str) -> None:
-    ox, oy, otheta = robot.get_odometry_pose()
-    print(f"  [{label}] odom=({ox:6.0f}, {oy:6.0f}) mm  θ={otheta:5.1f}°")
 
 
 def run(robot: Robot) -> None:
@@ -91,14 +80,14 @@ def run(robot: Robot) -> None:
                     print("[warn] odometry reset not confirmed within 2.0s; continuing with latest pose")
                     robot.wait_for_pose_update(timeout=0.5)
                 show_running_leds(robot)
-                print("[FSM] RUNNING — commanding 120mm/s for 3s")
+                print(f"[FSM] RUNNING — commanding 120mm/s for {DUR:.1f}s")
                 robot.set_velocity(120.0, 0.0)
                 show_running_leds(robot)
                 running_start_time = time.monotonic()
                 state = "RUNNING"
 
         elif state == "RUNNING":
-            if time.monotonic() - running_start_time > 3.0:
+            if time.monotonic() - running_start_time > DUR:
                 robot.stop()
                 show_idle_leds(robot)
                 print("[FSM] IDLE — press BTN_1 to start")
