@@ -15,7 +15,7 @@ POSE_STOP_SIGN = (2438.4, 609.6, -90)
 
 tasks = [
     # {"state": "WAIT", "trigger": "green_light"},
-    {"state": "NAV", "goal_pose_mm": (0, 1*610.0, 0)}
+    {"state": "NAV", "goal_pose_mm": (0, 3*610.0, 0)}
 ]
 
 # tasks = [
