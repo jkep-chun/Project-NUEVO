@@ -14,7 +14,7 @@ from robot.robot_fsm import RobotFSM
 # More helpers
 # TODO: change path when complete
 from robot.fsm_helpers.vision_helpers import find_traffic_light_color
-from robot.fsm_helpers.firmware_helpers import configure_robot, start_robot, home_lift
+from robot.fsm_helpers.firmware_helpers import configure_robot, start_robot, reset_mission_pose, home_lift
 from robot.fsm_helpers.task_planner import tasks, TOLERANCE_MM, VELOCITY_MM_S
 
 ENABLE_CAM = False
@@ -219,7 +219,8 @@ class MissionFSM(RobotFSM):
                     attraction_gain=1.0,
                     force_ema_alpha=0.35,
                     inflation_margin_mm=150.0,
-                    leash_half_angle_deg=25.0
+                    leash_half_angle_deg=25.0,
+                    blocking=False
                 )
         
             if self.drive_handle.is_done():
