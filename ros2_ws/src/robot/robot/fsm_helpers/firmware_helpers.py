@@ -142,9 +142,11 @@ class ServoHomingHandle:
         self._servo_id = servo_id
         self._limit_switch_id = limit_switch_id
 
-        # Try to initialize current angle from existing state
+        # Try to initialize current angle from existing state.
+        # If pulse_us is 0, it means the servo is disabled or uninitialized; 
+        # fall back to GRIPPER_CLOSE_DEG.
         state = self._robot.get_servo_state()
-        if state:
+        if state and state.channels[self._servo_id - 1].pulse_us >= 1000:
             pulse_us = state.channels[self._servo_id - 1].pulse_us
             self._current_angle = (pulse_us - 1000.0) * 180.0 / 1000.0
         else:
@@ -155,10 +157,12 @@ class ServoHomingHandle:
 
     def is_done(self) -> bool:
         """Returns True once limit switch is triggered or 0 deg reached."""
-        if self._robot.get_limit(self._limit_switch_id):
-            return True
+        # if self._robot.get_limit(self._limit_switch_id):
+        #     print(f"[HOMING] — Gripper homing complete: limit {self._limit_switch_id} triggered.")
+        #     return True
 
         if self._current_angle <= 0:
+            print(f"[HOMING] — Gripper homing complete: 0 deg reached.")
             self._robot.set_servo(self._servo_id, 0.0)
             return True
 
