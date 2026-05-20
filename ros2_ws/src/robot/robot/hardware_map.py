@@ -156,6 +156,7 @@ TAG_ID = 20
 
 # Servo 1 — gripper jaw
 GRIPPER_SERVO = ServoChannel.CH_1
+GRIPPER_LIMIT = Limit.LIM_2
 GRIPPER_OPEN_DEG = 0.0
 GRIPPER_CLOSE_DEG = 40.0 # TODO: Switch to limit switch feedback
 GRIPPER_SETTLE_S = 1.0

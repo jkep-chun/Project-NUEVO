@@ -1,4 +1,8 @@
 from robot.hardware_map import (
+    Motor,
+    DCPidLoop,
+    LED,
+
     INITIAL_THETA_DEG,
     LEFT_WHEEL_DIR_INVERTED,
     LEFT_WHEEL_MOTOR,
@@ -7,14 +11,12 @@ from robot.hardware_map import (
     RIGHT_WHEEL_MOTOR,
     WHEEL_BASE,
     WHEEL_DIAMETER,
-    TAG_ID,
-    TAG_BODY_OFFSET_X_MM,
-    TAG_BODY_OFFSET_Y_MM,
+
     LIFT_STEPPER,
     LIFT_HOME_VELOCITY,
-    Motor,
-    DCPidLoop,
-    LED,
+    GRIPPER_SERVO,
+    GRIPPER_LIMIT,
+    GRIPPER_CLOSE_DEG,
 
     LIDAR_FOV_DEG,
     LIDAR_MOUNT_THETA_DEG,
@@ -23,6 +25,9 @@ from robot.hardware_map import (
     LIDAR_RANGE_MAX_MM,
     LIDAR_RANGE_MIN_MM,
 
+    TAG_ID,
+    TAG_BODY_OFFSET_X_MM,
+    TAG_BODY_OFFSET_Y_MM,
 
 )
 from robot.robot import FirmwareState, Robot
@@ -98,7 +103,7 @@ def cancel_motion(robot: Robot, handle) -> None:
         handle.wait(timeout=1.0)
     robot.stop()
 
-class HomingHandle:
+class StepHomingHandle:
     """
     Handle to track non-blocking homing progress.
     Mimics the interface of MotionHandle.
@@ -127,11 +132,46 @@ class HomingHandle:
             return True
         return False    
    
-   
-def home_lift(robot: Robot) -> HomingHandle:
+class ServoHomingHandle:
+    """
+    Handle to track non-blocking homing progress.
+    Mimics the interface of MotionHandle.
+    """
+    def __init__(self, robot: Robot, servo_id: int, limit_switch_id: int):
+        self._robot = robot
+        self._servo_id = servo_id
+        self._limit_switch_id = limit_switch_id
+
+        # Try to initialize current angle from existing state
+        state = self._robot.get_servo_state()
+        if state:
+            pulse_us = state.pulse_us[self._servo_id - 1]
+            self._current_angle = (pulse_us - 1000.0) * 180.0 / 1000.0
+        else:
+            self._current_angle = GRIPPER_CLOSE_DEG
+
+        # Command initial position to start the sequence
+        self._robot.set_servo(self._servo_id, self._current_angle)
+
+    def is_done(self) -> bool:
+        """Returns True once limit switch is triggered or 0 deg reached."""
+        if self._robot.get_limit(self._limit_switch_id):
+            return True
+
+        if self._current_angle <= 0:
+            self._robot.set_servo(self._servo_id, 0.0)
+            return True
+
+        # Move one step towards 0
+        self._current_angle -= 1.0 
+        self._robot.set_servo(self._servo_id, self._current_angle)
+        return False
+
+
+def home_lift(robot: Robot) -> StepHomingHandle:
     """
     Starts the non-blocking homing sequence for the lift.
-    Returns a HomingHandle to poll for completion.
+    Returns a StepHomingHandle to poll for completion.
     """
     print("[HOMING] — Starting lift homing...")
     robot.step_enable(LIFT_STEPPER)
@@ -142,4 +182,13 @@ def home_lift(robot: Robot) -> HomingHandle:
         backoff_steps=50,
         blocking=False
     )
-    return HomingHandle(robot, LIFT_STEPPER)
+    return StepHomingHandle(robot, LIFT_STEPPER)
+
+def home_gripper(robot: Robot) -> ServoHomingHandle:
+    """
+    Starts the non-blocking homing sequence for the grip.
+    Returns a ServoHomingHandle to poll for completion.
+    """
+    print("[HOMING] — Starting gripper homing...")
+    robot.enable_servo(GRIPPER_SERVO)
+    return ServoHomingHandle(robot, GRIPPER_SERVO, GRIPPER_LIMIT)
