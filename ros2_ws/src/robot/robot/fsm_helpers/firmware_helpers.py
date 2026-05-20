@@ -145,7 +145,7 @@ class ServoHomingHandle:
         # Try to initialize current angle from existing state
         state = self._robot.get_servo_state()
         if state:
-            pulse_us = state.pulse_us[self._servo_id - 1]
+            pulse_us = state.channels[self._servo_id - 1].pulse_us
             self._current_angle = (pulse_us - 1000.0) * 180.0 / 1000.0
         else:
             self._current_angle = GRIPPER_CLOSE_DEG
