@@ -4,7 +4,7 @@ import sqlite3
 import os
 from datetime import datetime
 
-from robot.hardware_map import Button
+from robot.hardware_map import Button, StepMoveType, Stepper
 
 LOG_DIR = "/runtime_output/logs"
 
@@ -14,8 +14,10 @@ from robot.robot_fsm import RobotFSM
 # More helpers
 # TODO: change path when complete
 from robot.fsm_helpers.vision_helpers import find_traffic_light_color
-from robot.fsm_helpers.firmware_helpers import configure_robot, start_robot, reset_mission_pose, home_lift
+from robot.fsm_helpers.firmware_helpers import configure_robot, start_robot, reset_mission_pose, home_lift, home_gripper
 from robot.fsm_helpers.task_planner import tasks, TOLERANCE_MM, VELOCITY_MM_S
+
+STEP_LEVEL_POSITION = 1000 # TODO: Measure
 
 ENABLE_CAM = False
 ENABLE_GRIPPER = False
@@ -27,20 +29,40 @@ class NavStage(IntEnum):
     POSITION = auto()
     HEADING = auto()
 
+class ManipStage(IntEnum):
+    LEVEL = auto()
+    OPEN = auto()
+    CLOSE = auto()
+    FORWARD = auto()
+    RETREAT = auto()
+    RAISE = auto()
+    LOWER = auto()
+
 class MissionFSM(RobotFSM):
     def __init__(self, robot: Robot, task_list: list[dict]):
         super().__init__(robot, initial_state_str="INIT")
+
+        # Tasks
         self.tasks = task_list
+        self.task = None
         self.task_idx = None
+        self.task_type = None
+
+        # Motion handles
+        self.homing_lift_handle = None
+        self.homing_gripper_handle = None
         self.drive_handle = None
-        self.homing_handle = None
-        self.nav_stage = None
-        # self.manip_stage = None
+        self.manip_handle = None
+
+        # Execution
         self.timer_start = None
         self.execution_print_period = 1.0
-        self.task = None
-        self.task_type = None
+        self.nav_stage = None
+        self.manip_sequence = []
+        self.manip_stage = None
+        self.manip_idx = 0
         
+        # Transitions
         self.add_transition("INIT", "to_execute", "EXECUTE")
         self.add_transition("INIT", "to_homing", "HOMING")
         self.add_transition("HOMING", "to_init", "INIT")
@@ -108,7 +130,8 @@ class MissionFSM(RobotFSM):
             )
 
         elif state == "HOMING":
-            self.homing_handle = None
+            self.homing_lift_handle = home_lift(self.robot)
+            self.homing_gripper_handle = home_gripper(self.robot)
             print("\n>>> HOMING - BEGIN SEQUENCE")
 
         elif state == "EXECUTE":
@@ -124,7 +147,28 @@ class MissionFSM(RobotFSM):
                     self.nav_stage = NavStage.POSITION
                 
                 # elif self.task_type == "MANIP":
-                #     self.manip_stage = None
+                #     cmd = self.task.get("cmd")
+                #     if cmd == "pick":
+                #         self.manip_sequence = [
+                #             ManipStage.LEVEL,
+                #             ManipStage.FORWARD,
+                #             ManipStage.OPEN,
+                #             ManipStage.LOWER,
+                #             ManipStage.CLOSE,
+                #             ManipStage.RAISE,
+                #             ManipStage.RETREAT
+                #         ]
+                #     elif cmd == "place":
+                #         self.manip_sequence = [
+                #             ManipStage.LEVEL,
+                #             ManipStage.FORWARD,
+                #             ManipStage.LOWER,
+                #             ManipStage.OPEN,
+                #             ManipStage.RAISE,
+                #             ManipStage.RETREAT
+                #         ]
+                #     self.manip_idx = 0
+
             else:
                 self.trigger("to_done")
 
@@ -149,10 +193,9 @@ class MissionFSM(RobotFSM):
                 self.trigger("to_homing")
 
         elif state_str == "HOMING":
-            if self.homing_handle is None:
-                self.homing_handle = home_lift(self.robot)
-            
-            if self.homing_handle.is_done():
+            lift_done = self.homing_lift_handle.is_done()
+            grip_done = self.homing_gripper_handle.is_done()
+            if lift_done and grip_done:
                 self.trigger("to_init")
         
         elif state_str == "EXECUTE":
@@ -161,9 +204,9 @@ class MissionFSM(RobotFSM):
             elif self.task_type == "NAV":
                 self._handle_nav(self.task)
             # elif self.task_type == "MANIP":
-            #     self._handle_manip(task)
+            #     self._handle_manip(self.task)
             # elif self.task_type == "IDENT":
-            #     self._handle_ident(task)
+            #     self._handle_ident(self.task)
 
         elif state_str == "DONE":
             if self.robot.was_button_pressed(Button.BTN_1):
@@ -198,15 +241,6 @@ class MissionFSM(RobotFSM):
         if self.nav_stage == NavStage.POSITION:
             if self.drive_handle is None:
                 print(f"Driving toward: ({g_x:.2f},{g_y:.2f})")
-                # TODO: Switch to APF or pure pursuit follower
-                # self.drive_handle = self.robot.move_to(
-                #     x=g_x,
-                #     y=g_y,
-                #     velocity=VELOCITY_MM_S,
-                #     tolerance=TOLERANCE_MM,
-                #     blocking=False,
-                #     timeout=None
-                # )
                 self.drive_handle = self.robot.lapf_to_goal(
                     x=g_x,
                     y=g_y,
@@ -230,7 +264,7 @@ class MissionFSM(RobotFSM):
                 self.nav_stage = NavStage.HEADING
                 self.drive_handle = None
 
-        if self.nav_stage == NavStage.HEADING:
+        elif self.nav_stage == NavStage.HEADING:
             if self.drive_handle is None:
                 print(f"Heading toward: {g_theta}")
                 self.drive_handle = self.robot.turn_to(
@@ -243,6 +277,35 @@ class MissionFSM(RobotFSM):
             if self.drive_handle.is_done():
                 self.trigger("next")
 
+    # def _handle_manip(self, params: dict) -> None:
+    #     self.manip_stage = self.manip_sequence[self.manip_idx]
+
+    #     if self.manip_handle is not None:
+    #         if self.manip_handle.is_done():
+    #             self.manip_handle = None
+    #             self.manip_idx += 1
+    #             if not self.manip_idx < len(self.manip_sequence):
+    #                 self.trigger("next")
+
+    #     if self.manip_stage == ManipStage.LEVEL:
+    #         if self.manip_handle == None:
+    #             self.manip_handle = self.robot.step_move(
+    #                 stepper_id=Stepper.STEPPER_1, # TODO: Define elsewhere
+    #                 step=STEP_LEVEL_POSITION,
+    #                 move_type=StepMoveType.ABSOLUTE,
+    #                 blocking=False,
+    #                 timeout=None
+    #             )
+
+    #     elif self.manip_stage == ManipStage.OPEN:
+    #         if self.manip_handle == None:
+    #             self.manip_handle = self.robot.
+
+    #     elif self.manip_stage == ManipStage.CLOSE:
+        # elif self.manip_stage == ManipStage.FORWARD:
+        # elif self.manip_stage == ManipStage.RETREAT:
+        # elif self.manip_stage == ManipStage.RAISE:
+        # elif self.manip_stage == ManipStage.LOWER:
 
 def run(robot: Robot) -> None:
     configure_robot(robot)
