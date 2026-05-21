@@ -1,42 +1,24 @@
 from __future__ import annotations
-import time
-import sqlite3
-import os
+import time, sqlite3, os
 from datetime import datetime
 
-from robot.hardware_map import Button, StepMoveType, Stepper
-
-LOG_DIR = "/runtime_output/logs"
-
 from robot.robot import Robot
+from robot.hardware_map import Button, Stepper, StepMoveType
 from robot.robot_fsm import RobotFSM
 
 # More helpers
 # TODO: change path when complete
 from robot.fsm_helpers.vision_helpers import find_traffic_light_color
 from robot.fsm_helpers.firmware_helpers import configure_robot, start_robot, reset_mission_pose, home_lift, home_gripper
-from robot.fsm_helpers.task_planner import tasks, TOLERANCE_MM, VELOCITY_MM_S
+from robot.fsm_helpers.task_planner import tasks
+from robot.fsm_helpers.burgerbot_parameters import TOLERANCE_MM, VELOCITY_MM_S, NavStage, ManipStage, PICK_SEQUENCE, PLACE_SEQUENCE
+from robot.fsm_helpers.course_parameters import STEP_LEVEL_POSITION
 
-STEP_LEVEL_POSITION = 1000 # TODO: Measure
+LOG_DIR = "/runtime_output/logs"
 
 ENABLE_CAM = False
 ENABLE_GRIPPER = False
 ENABLE_LIFT = False
-
-from enum import IntEnum, auto
-
-class NavStage(IntEnum):
-    POSITION = auto()
-    HEADING = auto()
-
-class ManipStage(IntEnum):
-    LEVEL = auto()
-    OPEN = auto()
-    CLOSE = auto()
-    FORWARD = auto()
-    RETREAT = auto()
-    RAISE = auto()
-    LOWER = auto()
 
 class MissionFSM(RobotFSM):
     def __init__(self, robot: Robot, task_list: list[dict]):
@@ -51,7 +33,7 @@ class MissionFSM(RobotFSM):
         # Motion handles
         self.homing_lift_handle = None
         self.homing_gripper_handle = None
-        self.drive_handle = None
+        self.nav_handle = None
         self.manip_handle = None
 
         # Execution
@@ -118,6 +100,9 @@ class MissionFSM(RobotFSM):
 
     def on_enter(self, state: str) -> None:
         self._log(event=f"ENTER_{state}")
+        self.robot.was_button_pressed(button_id=Button.BTN_1, consume=True)
+        self.robot.was_button_pressed(button_id=Button.BTN_2, consume=True)
+
         if state == "INIT":
             self.task_idx = 0
             print("\n>>> INIT - STARTING ROBOT")
@@ -143,31 +128,16 @@ class MissionFSM(RobotFSM):
                 self.task_type = self.task.get("state")
 
                 if self.task_type == "NAV":
-                    self.drive_handle = None # Reset drive handle
+                    self.nav_handle = None # Reset drive handle
                     self.nav_stage = NavStage.POSITION
                 
-                # elif self.task_type == "MANIP":
-                #     cmd = self.task.get("cmd")
-                #     if cmd == "pick":
-                #         self.manip_sequence = [
-                #             ManipStage.LEVEL,
-                #             ManipStage.FORWARD,
-                #             ManipStage.OPEN,
-                #             ManipStage.LOWER,
-                #             ManipStage.CLOSE,
-                #             ManipStage.RAISE,
-                #             ManipStage.RETREAT
-                #         ]
-                #     elif cmd == "place":
-                #         self.manip_sequence = [
-                #             ManipStage.LEVEL,
-                #             ManipStage.FORWARD,
-                #             ManipStage.LOWER,
-                #             ManipStage.OPEN,
-                #             ManipStage.RAISE,
-                #             ManipStage.RETREAT
-                #         ]
-                #     self.manip_idx = 0
+                elif self.task_type == "MANIP":
+                    cmd = self.task.get("cmd")
+                    if cmd == "pick":
+                        self.manip_sequence = PICK_SEQUENCE
+                    elif cmd == "place":
+                        self.manip_sequence = PLACE_SEQUENCE
+                    self.manip_idx = 0
 
             else:
                 self.trigger("to_done")
@@ -193,9 +163,12 @@ class MissionFSM(RobotFSM):
                 self.trigger("to_homing")
 
         elif state_str == "HOMING":
+             # Separate from if statement logic to ensure each .is_done is called
             lift_done = self.homing_lift_handle.is_done()
             grip_done = self.homing_gripper_handle.is_done()
             if lift_done and grip_done:
+                self.homing_lift_handle = None
+                self.homing_gripper_handle = None
                 self.trigger("to_init")
         
         elif state_str == "EXECUTE":
@@ -232,16 +205,16 @@ class MissionFSM(RobotFSM):
         x, y, theta = self.robot.get_pose()
         time_now = time.monotonic()
         if time_now - self.timer_start >= self.execution_print_period:
-            status = self.drive_handle.is_done() if self.drive_handle else "STARTING"
+            status = self.nav_handle.is_done() if self.nav_handle else "STARTING"
             print(f"[Task {self.task_idx}] stage: {self.nav_stage.name}, done: {status}, pose: ({x:.2f},{y:.2f},{theta:.2f})")
             self._log(event="TELEMETRY")
             self.timer_start = time_now
         g_x, g_y, g_theta = params.get("goal_pose_mm")
 
         if self.nav_stage == NavStage.POSITION:
-            if self.drive_handle is None:
+            if self.nav_handle is None:
                 print(f"Driving toward: ({g_x:.2f},{g_y:.2f})")
-                self.drive_handle = self.robot.lapf_to_goal(
+                self.nav_handle = self.robot.lapf_to_goal(
                     x=g_x,
                     y=g_y,
                     velocity=VELOCITY_MM_S,
@@ -257,24 +230,24 @@ class MissionFSM(RobotFSM):
                     blocking=False
                 )
         
-            if self.drive_handle.is_done():
+            if self.nav_handle.is_done():
                 print(f"[Task {self.task_idx}] stage: {self.nav_stage.name}, done: {True}, pose: ({x:.2f},{y:.2f},{theta:.2f})")
                 self._log(event="TELEMETRY")
 
                 self.nav_stage = NavStage.HEADING
-                self.drive_handle = None
+                self.nav_handle = None
 
         elif self.nav_stage == NavStage.HEADING:
-            if self.drive_handle is None:
+            if self.nav_handle is None:
                 print(f"Heading toward: {g_theta}")
-                self.drive_handle = self.robot.turn_to(
+                self.nav_handle = self.robot.turn_to(
                     angle_deg=g_theta,
                     blocking=False,
                     tolerance_deg=2.0,
                     timeout=None
                 )
 
-            if self.drive_handle.is_done():
+            if self.nav_handle.is_done():
                 self.trigger("next")
 
     # def _handle_manip(self, params: dict) -> None:
@@ -302,10 +275,10 @@ class MissionFSM(RobotFSM):
     #             self.manip_handle = self.robot.
 
     #     elif self.manip_stage == ManipStage.CLOSE:
-        # elif self.manip_stage == ManipStage.FORWARD:
-        # elif self.manip_stage == ManipStage.RETREAT:
-        # elif self.manip_stage == ManipStage.RAISE:
-        # elif self.manip_stage == ManipStage.LOWER:
+    #     elif self.manip_stage == ManipStage.FORWARD:
+    #     elif self.manip_stage == ManipStage.RETREAT:
+    #     elif self.manip_stage == ManipStage.RAISE:
+    #     elif self.manip_stage == ManipStage.LOWER:
 
 def run(robot: Robot) -> None:
     configure_robot(robot)

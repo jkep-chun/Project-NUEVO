@@ -1,3 +1,7 @@
+"""
+User-created methods concerning robot firmware
+"""
+
 from robot.hardware_map import (
     Motor,
     DCPidLoop,
@@ -103,6 +107,7 @@ def cancel_motion(robot: Robot, handle) -> None:
         handle.wait(timeout=1.0)
     robot.stop()
 
+
 class StepHomingHandle:
     """
     Handle to track non-blocking homing progress.
@@ -132,6 +137,7 @@ class StepHomingHandle:
             return True
         return False    
    
+
 class ServoHomingHandle:
     """
     Handle to track non-blocking homing progress.
@@ -187,6 +193,7 @@ def home_lift(robot: Robot) -> StepHomingHandle:
         blocking=False
     )
     return StepHomingHandle(robot, LIFT_STEPPER)
+
 
 def home_gripper(robot: Robot) -> ServoHomingHandle:
     """
