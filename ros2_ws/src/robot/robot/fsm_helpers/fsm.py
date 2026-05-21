@@ -3,7 +3,7 @@ import time, sqlite3, os
 from datetime import datetime
 
 from robot.robot import Robot
-from robot.hardware_map import Button
+from robot.hardware_map import Button, Stepper, StepMoveType
 from robot.robot_fsm import RobotFSM
 
 # More helpers
@@ -12,6 +12,7 @@ from robot.fsm_helpers.vision_helpers import find_traffic_light_color
 from robot.fsm_helpers.firmware_helpers import configure_robot, start_robot, reset_mission_pose, home_lift, home_gripper
 from robot.fsm_helpers.task_planner import tasks
 from robot.fsm_helpers.burgerbot_parameters import TOLERANCE_MM, VELOCITY_MM_S, NavStage, ManipStage, PICK_SEQUENCE, PLACE_SEQUENCE
+from robot.fsm_helpers.course_parameters import STEP_LEVEL_POSITION
 
 LOG_DIR = "/runtime_output/logs"
 
@@ -274,10 +275,10 @@ class MissionFSM(RobotFSM):
     #             self.manip_handle = self.robot.
 
     #     elif self.manip_stage == ManipStage.CLOSE:
-        # elif self.manip_stage == ManipStage.FORWARD:
-        # elif self.manip_stage == ManipStage.RETREAT:
-        # elif self.manip_stage == ManipStage.RAISE:
-        # elif self.manip_stage == ManipStage.LOWER:
+    #     elif self.manip_stage == ManipStage.FORWARD:
+    #     elif self.manip_stage == ManipStage.RETREAT:
+    #     elif self.manip_stage == ManipStage.RAISE:
+    #     elif self.manip_stage == ManipStage.LOWER:
 
 def run(robot: Robot) -> None:
     configure_robot(robot)
