@@ -160,6 +160,7 @@ GRIPPER_LIMIT = Limit.LIM_2
 GRIPPER_OPEN_DEG = 0.0
 GRIPPER_CLOSE_DEG = 40.0 # TODO: Switch to limit switch feedback
 GRIPPER_SETTLE_S = 1.0
+GRIPPER_HOME_VELOCITY = 4.0 # TODO: Deg/s
 
 # Stepper 1 — lift
 LIFT_STEPPER = Stepper.STEPPER_1
