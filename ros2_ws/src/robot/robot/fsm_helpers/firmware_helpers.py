@@ -2,6 +2,8 @@
 User-created methods concerning robot firmware
 """
 
+import time
+
 from robot.hardware_map import (
     Motor,
     DCPidLoop,
@@ -152,11 +154,19 @@ class ServoHomingHandle:
         # If pulse_us is 0, it means the servo is disabled or uninitialized; 
         # fall back to GRIPPER_CLOSE_DEG.
         state = self._robot.get_servo_state()
-        if state and state.channels[self._servo_id - 1].pulse_us >= 1000:
-            pulse_us = state.channels[self._servo_id - 1].pulse_us
+        pulse_us = 0
+        if state:
+            for channel in state.channels:
+                if channel.channel_number == self._servo_id:
+                    pulse_us = channel.pulse_us
+                    break
+
+        if pulse_us >= 1000:
             self._current_angle = (pulse_us - 1000.0) * 180.0 / 1000.0
         else:
             self._current_angle = GRIPPER_CLOSE_DEG
+
+        self._last_step_time = time.monotonic()
 
         # Command initial position to start the sequence
         self._robot.set_servo(self._servo_id, self._current_angle)
@@ -172,9 +182,13 @@ class ServoHomingHandle:
             self._robot.set_servo(self._servo_id, 0.0)
             return True
 
-        # Move one step towards 0
-        self._current_angle -= 1.0 
-        self._robot.set_servo(self._servo_id, self._current_angle)
+        now = time.monotonic()
+        if now - self._last_step_time >= 0.02:  # Throttled to 50Hz max to avoid publisher flooding
+            # Move one step towards 0
+            self._current_angle -= 1.0 
+            self._robot.set_servo(self._servo_id, self._current_angle)
+            self._last_step_time = now
+            
         return False
 
 
