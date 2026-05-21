@@ -13,6 +13,8 @@ from robot.hardware_map import (
     POSITION_UNIT,
     RIGHT_WHEEL_DIR_INVERTED,
     RIGHT_WHEEL_MOTOR,
+    SERVO_MAX_US,
+    SERVO_MIN_US,
     WHEEL_BASE,
     WHEEL_DIAMETER,
 
@@ -164,8 +166,8 @@ class ServoHomingHandle:
                     pulse_us = channel.pulse_us
                     break
 
-        if pulse_us >= 1000:
-            self._current_angle = (pulse_us - 1000.0) * 180.0 / 1000.0
+        if pulse_us >= SERVO_MIN_US:
+            self._current_angle = (pulse_us - SERVO_MIN_US) * 180.0 / (SERVO_MAX_US - SERVO_MIN_US)
         else:
             self._current_angle = GRIPPER_CLOSE_DEG
 

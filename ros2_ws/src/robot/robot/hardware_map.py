@@ -10,7 +10,11 @@ class Unit(Enum):
     REST_OF_THE_WORLD = MM
 
 
-# PCB Hardware Mapping
+# Servo pulse ranges
+SERVO_MIN_US = 500
+SERVO_MAX_US = 2500
+
+# PCA9685 Hardware Mapping
 class Motor(IntEnum):
     DC_M1 = 1
     DC_M2 = 2
