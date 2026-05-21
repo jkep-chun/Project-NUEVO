@@ -2,7 +2,7 @@
 User-defined mission tasks. Set MODE below
 """
 
-import course_parameters
+from robot.fsm_helpers import course_parameters
 
 MODE = "TEST_LAPF"
 

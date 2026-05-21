@@ -108,6 +108,8 @@ from robot.hardware_map import (
     Motor,
     RIGHT_WHEEL_DIR_INVERTED as HW_RIGHT_WHEEL_DIR_INVERTED,
     RIGHT_WHEEL_MOTOR as HW_RIGHT_WHEEL_MOTOR,
+    SERVO_MAX_US,
+    SERVO_MIN_US,
     StepMoveType,
     StepperMotionState,
     TAG_BODY_OFFSET_X_MM,
@@ -203,8 +205,8 @@ class Robot(HardwareMixin, SensorsMixin, NavigationMixin, LegacyMixin):
     LAPF_FORCE_EMA_ALPHA: float = 0.35
     LAPF_INFLATION_MARGIN_MM: float = 200.0
 
-    _SERVO_MIN_US: int = 1000
-    _SERVO_MAX_US: int = 2000
+    _SERVO_MIN_US: int = SERVO_MIN_US
+    _SERVO_MAX_US: int = SERVO_MAX_US
     _SHUTDOWN_SETTLE_S: float = 0.10
 
     def __init__(

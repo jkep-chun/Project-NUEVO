@@ -20,7 +20,7 @@
  *
  * Servo PWM Timing:
  * - Standard servos: 50Hz (20ms period)
- * - Pulse width: 1000-2000µs for 0-180° (varies by servo)
+ * - Pulse width: 500-2500µs for 0-180° (typical)
  * - PCA9685: 4096 steps per period (12-bit resolution)
  *
  * Usage:

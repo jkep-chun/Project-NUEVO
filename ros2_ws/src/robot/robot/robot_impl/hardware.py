@@ -429,7 +429,7 @@ class HardwareMixin:
     def set_servo(self, channel: int, angle_deg: float) -> None:
         """
         Set a servo to angle_deg (0–180°).
-        Maps 0° → 1000 µs, 180° → 2000 µs.
+        Maps 0° → 500 µs, 180° → 2500 µs.
         """
         channel = self._require_id("channel", channel, 1, 16)
         angle_clamped = max(0.0, min(180.0, angle_deg))
