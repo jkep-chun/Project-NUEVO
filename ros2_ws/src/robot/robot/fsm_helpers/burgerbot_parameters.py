@@ -2,6 +2,7 @@ from enum import IntEnum, auto
 
 TOLERANCE_MM = 50.0
 VELOCITY_MM_S = 150.0
+LOOKAHEAD_MM = 50.0 # TODO: Tune
 
 class NavStage(IntEnum):
     POSITION = auto()
