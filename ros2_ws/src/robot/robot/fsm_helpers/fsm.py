@@ -208,6 +208,16 @@ class MissionFSM(RobotFSM):
                 print("trigger - green light detected")
                 self.trigger("next")
 
+    def _finish_segment(self) -> None:
+        """Advance to the next segment or task after all stages of the current segment are complete."""
+        self.nav_waypoints_idx = self.nav_waypoints_idx_last + 1
+        
+        if self.nav_waypoints_idx < len(self.nav_waypoints):
+            self.nav_init = True
+        else:
+            print(f">>> Task {self.task_idx} COMPLETE")
+            self.trigger("next")
+
     def _handle_nav(self, params: dict) -> None:
         if "waypoints" not in params:
             self.trigger("next")
@@ -216,23 +226,27 @@ class MissionFSM(RobotFSM):
         path_planner = params.get("path_planner")
         
         if self.nav_init:
-            self.nav_waypoints_idx_last = self.nav_waypoints_idx
-
-            # Create list of (x, y) waypoints
+            # Identify a "segment": waypoints up to and including the next heading target
+            segment_start_idx = self.nav_waypoints_idx
             self.nav_waypoints_segment.clear()
             g_theta = []
-            while True:
+            
+            while self.nav_waypoints_idx < len(self.nav_waypoints):
                 wp = self.nav_waypoints[self.nav_waypoints_idx]
                 g_x, g_y = wp[0], wp[1]
                 g_theta = wp[2:]
                 self.nav_waypoints_segment.append((g_x, g_y))
-                # If g_theta DNE, try to advance nav_waypoints_idx
-                if not g_theta and self.nav_waypoints_idx < len(self.nav_waypoints) - 1:
+                
+                if g_theta: # End of segment reached
+                    break
+                
+                if self.nav_waypoints_idx < len(self.nav_waypoints) - 1:
                     self.nav_waypoints_idx += 1
                 else:
                     break
 
-            # At this point, g_theta is populated or all waypoints are added
+            self.nav_waypoints_idx_last = self.nav_waypoints_idx
+            
             if g_theta:
                 self.nav_stage_sequence = [NavStage.POSITION, NavStage.HEADING]
                 self.nav_target_theta = float(g_theta[0])
@@ -240,27 +254,19 @@ class MissionFSM(RobotFSM):
                 self.nav_stage_sequence = [NavStage.POSITION]
                 self.nav_target_theta = None
 
-            # Handle indexing depending on path planner type
-            if path_planner == "pp":
-                self.nav_waypoints_idx_last = self.nav_waypoints_idx
-            elif path_planner == "lapf":
-                # For LAPF, we want to iterate through the segment one by one
-                # So we swap to keep track of the segment range
-                start_idx = self.nav_waypoints_idx_last
-                end_idx = self.nav_waypoints_idx
-                self.nav_waypoints_idx = start_idx
-                self.nav_waypoints_idx_last = end_idx
+            if path_planner == "lapf":
+                self.nav_waypoints_idx = segment_start_idx
             
-            # Finally, set up the nav_stage_sequence
             self.nav_stage_idx = 0
             self.nav_stage = self.nav_stage_sequence[self.nav_stage_idx]
             self.nav_init = False
+            self.nav_handle = None
         
         x, y, theta = self.robot.get_pose()
         time_now = time.monotonic()
         if time_now - self.timer_start >= self.execution_print_period:
-            status = self.nav_handle.is_done() if self.nav_handle else "STARTING"
-            print(f"[Task {self.task_idx}] stage: {self.nav_stage.name}, done: {status}, pose: ({x:.2f},{y:.2f},{theta:.2f})")
+            status = self.nav_handle.is_done() if self.nav_handle else "IDLE"
+            print(f"[Task {self.task_idx}] stage: {self.nav_stage.name}, wp_idx: {self.nav_waypoints_idx}, pose: ({x:.2f},{y:.2f},{theta:.2f})")
             self._log(event="TELEMETRY")
             self.timer_start = time_now
 
@@ -282,8 +288,7 @@ class MissionFSM(RobotFSM):
                     tx, ty = wp[0], wp[1]
                     print(f"Driving (LAPF) toward: ({tx:.2f},{ty:.2f})")
                     self.nav_handle = self.robot.lapf_to_goal(
-                        x=tx,
-                        y=ty,
+                        x=tx, y=ty,
                         velocity=VELOCITY_MM_S,
                         tolerance=TOLERANCE_MM,
                         leash_length_mm=50,
@@ -299,32 +304,16 @@ class MissionFSM(RobotFSM):
                 return
 
             if self.nav_handle.is_done():
-                self.nav_handle = None # Stop current motion
-                if path_planner == "lapf":
-                    # If there's remaining (x, y) waypoints, handle them
-                    if self.nav_waypoints_idx < self.nav_waypoints_idx_last:
-                        self.nav_waypoints_idx += 1
-                        return
-                    # Otherwise, if on the last (x, y) waypoint, advance nav_stage
-                    else:
-                        self.nav_stage_idx += 1
-
-                elif path_planner == "pp":
-                    self.nav_stage_idx += 1
-                    self.nav_waypoints_idx = self.nav_waypoints_idx_last + 1
-
-                # If there are remaining stages, set nav_stage to the next stage
-                if self.nav_stage_idx < len(self.nav_stage_sequence):    
-                    self.nav_stage = self.nav_stage_sequence[self.nav_stage_idx]
-                # Otherwise this is the last stage, so if not final waypoint, increment waypoint index
-                elif self.nav_waypoints_idx < len(self.nav_waypoints):
+                self.nav_handle = None
+                if path_planner == "lapf" and self.nav_waypoints_idx < self.nav_waypoints_idx_last:
                     self.nav_waypoints_idx += 1
-                    # Log this waypoint
-                    print(f"[Task {self.task_idx}] stage: {self.nav_stage.name}, done: {True}, pose: ({x:.2f},{y:.2f},{theta:.2f})")
-                    self._log(event="TELEMETRY")
-                # Otherwise this is the last stage and the last waypoint, so proceed to next task
+                    return
                 else:
-                    self.trigger("next")
+                    self.nav_stage_idx += 1
+                    if self.nav_stage_idx < len(self.nav_stage_sequence):    
+                        self.nav_stage = self.nav_stage_sequence[self.nav_stage_idx]
+                    else:
+                        self._finish_segment()
 
         elif self.nav_stage == NavStage.HEADING:
             if self.nav_handle is None:
@@ -340,15 +329,10 @@ class MissionFSM(RobotFSM):
             if self.nav_handle.is_done():
                 self.nav_handle = None
                 self.nav_stage_idx += 1
-                
                 if self.nav_stage_idx < len(self.nav_stage_sequence):
-                    return
-                elif self.nav_waypoints_idx < len(self.nav_waypoints):
-                    self.nav_init = True
+                    self.nav_stage = self.nav_stage_sequence[self.nav_stage_idx]
                 else:
-                    print(f"[Task {self.task_idx}] stage: {self.nav_stage.name}, done: {True}, pose: ({x:.2f},{y:.2f},{theta:.2f})")
-                    self._log(event="TELEMETRY")
-                    self.trigger("next")
+                    self._finish_segment()
 
     # def _handle_manip(self, params: dict) -> None:
     #     self.manip_stage = self.manip_sequence[self.manip_stage_idx]
