@@ -16,6 +16,18 @@ elif MODE == "TEST_CAM":
         {"state": "WAIT", "trigger": "green_light"}
     ]
 
+elif MODE == "TEST_NAV":
+    tasks = [
+        {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": cp.POSE_BURGER_BUN_1},
+        {"state": "NAV", "path_planner": "pp", "vision": "burger_patty", "waypoints": cp.POSE_BURGER_PATTY},
+        {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": cp.POSE_BURGER_BUN_2},
+        {"state": "NAV", "path_planner": "pp", "waypoints": [cp.WP1, cp.WP2, cp.WP3, cp.WP4]},
+        {"state": "NAV", "path_planner": "lapf", "vision": "face", "waypoints": cp.POSE_FACE},
+        {"state": "NAV", "path_planner": "pp", "vision": "customer", "waypoints": cp.POSE_CUSTOMER_A},
+        {"state": "NAV", "path_planner": "pp", "vision": "stop_sign", "waypoints": cp.POSE_STOP_SIGN},
+        {"state": "NAV", "path_planner": "pp", "waypoints": cp.WP5}
+    ]
+
 elif MODE == "FULL_RUN":
     tasks = [
         {"state": "WAIT", "trigger": "green_light"},
@@ -29,8 +41,8 @@ elif MODE == "FULL_RUN":
         {"state": "NAV", "path_planner": "lapf", "vision": "face", "waypoints": cp.POSE_FACE},
         {"state": "IDENT"},
         {"state": "PLAN"},
-        {"state": "NAV", "vision": "customer", "waypoints": cp.POSE_CUSTOMER_A},
+        {"state": "NAV", "path_planner": "pp", "vision": "customer", "waypoints": cp.POSE_CUSTOMER_A},
         {"state": "MANIP", "cmd": "place"},
-        {"state": "NAV", "vision": "stop_sign", "waypoints": cp.POSE_STOP_SIGN},
-        {"state": "NAV", "waypoints": cp.WP5}
+        {"state": "NAV", "path_planner": "pp", "vision": "stop_sign", "waypoints": cp.POSE_STOP_SIGN},
+        {"state": "NAV", "path_planner": "pp", "waypoints": cp.WP5}
     ]
