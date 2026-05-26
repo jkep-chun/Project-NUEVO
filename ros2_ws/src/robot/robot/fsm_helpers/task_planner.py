@@ -4,7 +4,7 @@ User-defined mission tasks. Set MODE below
 
 from robot.fsm_helpers import course_parameters as cp
 
-MODE = "TEST_LAPF"
+MODE = "TEST_NAV"
 
 if MODE == "TEST_LAPF":
     tasks = [
