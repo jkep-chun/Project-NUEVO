@@ -137,7 +137,11 @@ class MissionFSM(RobotFSM):
                 if self.task_type == "NAV":
                     self.nav_handle = None # Reset drive handle
                     self.nav_stage = NavStage.POSITION
-                    self.nav_waypoints = self.task.get("waypoints")
+                    waypoints = self.task.get("waypoints")
+                    # Ensure waypoints is a list of tuples/lists
+                    if waypoints and not isinstance(waypoints[0], (list, tuple)):
+                        waypoints = [waypoints]
+                    self.nav_waypoints = waypoints
                     self.nav_waypoints_idx = 0
                     self.nav_waypoints_idx_last = 0
                     self.nav_init = True
@@ -219,7 +223,8 @@ class MissionFSM(RobotFSM):
             self.trigger("next")
 
     def _handle_nav(self, params: dict) -> None:
-        if "waypoints" not in params:
+        if not params.get("waypoints"):
+            print(f"[Task {self.task_idx}] WARNING: No waypoints provided, skipping.")
             self.trigger("next")
             return
         
