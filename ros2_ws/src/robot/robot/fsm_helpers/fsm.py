@@ -10,7 +10,6 @@ from robot.util import densify_polyline
 
 # More helpers
 # TODO: change path when complete
-from robot.fsm_helpers.vision_helpers import find_traffic_light_color
 from robot.fsm_helpers.firmware_helpers import configure_robot, start_robot, reset_mission_pose, home_lift, home_gripper
 from robot.fsm_helpers.task_planner import tasks
 from robot.fsm_helpers.burgerbot_parameters import TOLERANCE_MM, VELOCITY_MM_S, LOOKAHEAD_MM, SPACING_MM, NavStage, ManipStage, PICK_SEQUENCE, PLACE_SEQUENCE
@@ -18,7 +17,6 @@ from robot.fsm_helpers.course_parameters import STEP_LEVEL_POSITION
 
 LOG_DIR = "/runtime_output/logs"
 
-ENABLE_CAM = False
 ENABLE_GRIPPER = False
 ENABLE_LIFT = False
 
@@ -189,14 +187,10 @@ class MissionFSM(RobotFSM):
                 self.trigger("to_init")
         
         elif state_str == "EXECUTE":
-            if self.task_type == "WAIT":
-                self._handle_wait(self.task)
-            elif self.task_type == "NAV":
-                self._handle_nav(self.task)
-            # elif self.task_type == "MANIP":
-            #     self._handle_manip(self.task)
-            # elif self.task_type == "IDENT":
-            #     self._handle_ident(self.task)
+            if self.current_task:
+            self.current_task.update()
+            if self.current_task.is_done():
+                self.trigger("next")
 
         elif state_str == "DONE":
             if self.robot.was_button_pressed(Button.BTN_1):
