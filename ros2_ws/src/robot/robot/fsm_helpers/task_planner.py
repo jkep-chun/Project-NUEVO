@@ -3,8 +3,9 @@ User-defined mission tasks. Set MODE below
 """
 
 from robot.fsm_helpers import course_parameters as cp
+from robot.fsm_helpers.course_parameters import SQ
 
-MODE = "TEST_NAV"
+MODE = "TEST_NAV2"
 
 if MODE == "TEST_LAPF":
     tasks = [
@@ -26,6 +27,17 @@ elif MODE == "TEST_NAV":
         {"state": "NAV", "path_planner": "pp", "vision": "customer", "waypoints": [cp.WP5, cp.POSE_CUSTOMER_A]},
         {"state": "NAV", "path_planner": "pp", "vision": "stop_sign", "waypoints": cp.POSE_STOP_SIGN},
         {"state": "NAV", "path_planner": "pp", "waypoints": cp.WP6}
+    ]
+
+elif MODE == "TEST_NAV2":
+    tasks = [
+        {"state": "NAV", "path_planner": "pp", "waypoints": [
+            (0*SQ, 0*SQ),
+            (0*SQ, 2*SQ),
+            (2*SQ, 2*SQ),
+            (2*SQ, 0*SQ)
+            ]
+        }
     ]
 
 elif MODE == "FULL_RUN":
