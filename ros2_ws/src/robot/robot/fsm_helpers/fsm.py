@@ -5,6 +5,8 @@ from datetime import datetime
 from robot.robot import Robot
 from robot.hardware_map import Button, Stepper, StepMoveType
 from robot.robot_fsm import RobotFSM
+from robot.util import densify_polyline
+
 
 # More helpers
 # TODO: change path when complete
@@ -141,7 +143,7 @@ class MissionFSM(RobotFSM):
                     # Ensure waypoints is a list of tuples/lists
                     if waypoints and not isinstance(waypoints[0], (list, tuple)):
                         waypoints = [waypoints]
-                    self.nav_waypoints = waypoints
+                    self.nav_waypoints = densify_polyline(waypoints, spacing=50.0)
                     self.nav_waypoints_idx = 0
                     self.nav_waypoints_idx_last = 0
                     self.nav_init = True
