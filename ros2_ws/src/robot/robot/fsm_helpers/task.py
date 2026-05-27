@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import time
+import os
 
 from robot.robot import Robot
 from robot.util import densify_polyline
@@ -188,6 +189,77 @@ class NavTask(Task):
 
     def is_done(self) -> bool:
         return self._is_done
+
+    def on_exit(self) -> None:
+        """
+        Save a plot of the robot's trajectory and waypoints to a .jpg file
+        in /runtime_output/plots/ upon exiting the navigation task.
+        """
+        try:
+            import matplotlib
+            matplotlib.use('Agg') # Headless-safe
+            import matplotlib.pyplot as plt
+        except ImportError:
+            print("[NavTask] matplotlib not installed; skipping path plot")
+            return
+
+        # Trajectory data from Robot (mm)
+        odom = list(self.robot._odom_traj)
+        fused = list(self.robot._fused_traj)
+        
+        if not odom and not fused:
+            return
+
+        plt.figure(figsize=(10, 8))
+        
+        # Plot raw odometry (light blue)
+        if odom:
+            ox, oy = zip(*odom)
+            plt.plot(ox, oy, label='Odometry (Raw)', color='steelblue', alpha=0.4, linewidth=1)
+        
+        # Plot fused trajectory (bold orange)
+        if fused:
+            fx, fy = zip(*fused)
+            plt.plot(fx, fy, label='Fused Trajectory', color='darkorange', linewidth=2)
+
+        # Plot current task waypoints
+        if self.waypoints:
+            wx = [wp[0] for wp in self.waypoints]
+            wy = [wp[1] for wp in self.waypoints]
+            plt.scatter(wx, wy, color='green', marker='o', s=40, label='Task Waypoints', zorder=5)
+            plt.plot(wx, wy, color='green', linestyle='--', alpha=0.2)
+            
+            if len(wx) > 0:
+                plt.text(wx[0], wy[0], ' Start', color='green', verticalalignment='bottom', fontsize=9)
+                plt.text(wx[-1], wy[-1], ' End', color='red', verticalalignment='bottom', fontsize=9)
+
+        # Current robot pose
+        curr_x, curr_y, _ = self.robot.get_pose()
+        plt.scatter([curr_x], [curr_y], color='red', marker='X', s=100, label='Final Position', zorder=10)
+
+        plt.xlabel('X (mm)')
+        plt.ylabel('Y (mm)')
+        plt.title(f'Robot Navigation Trajectory ({self.path_planner.upper()})')
+        plt.legend()
+        plt.axis('equal')
+        plt.grid(True, linestyle=':', alpha=0.6)
+        
+        # Determine save directory (prioritize Docker /runtime_output)
+        save_dir = "/runtime_output/plots"
+        if not os.path.exists(save_dir):
+            # Fallback to local project structure
+            save_dir = "ros2_ws/runtime_output/plots"
+            
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, "final_trajectory.jpg")
+        
+        try:
+            plt.savefig(save_path, format='jpg', dpi=150)
+            print(f"[NavTask] Trajectory plot saved to {save_path}")
+        except Exception as e:
+            print(f"[NavTask] Error saving plot: {e}")
+        finally:
+            plt.close()
 
 
 class WaitTask(Task):
