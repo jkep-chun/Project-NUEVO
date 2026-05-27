@@ -13,7 +13,7 @@ from robot.util import densify_polyline
 from robot.fsm_helpers.vision_helpers import find_traffic_light_color
 from robot.fsm_helpers.firmware_helpers import configure_robot, start_robot, reset_mission_pose, home_lift, home_gripper
 from robot.fsm_helpers.task_planner import tasks
-from robot.fsm_helpers.burgerbot_parameters import TOLERANCE_MM, VELOCITY_MM_S, LOOKAHEAD_MM, NavStage, ManipStage, PICK_SEQUENCE, PLACE_SEQUENCE
+from robot.fsm_helpers.burgerbot_parameters import TOLERANCE_MM, VELOCITY_MM_S, LOOKAHEAD_MM, SPACING_MM, NavStage, ManipStage, PICK_SEQUENCE, PLACE_SEQUENCE
 from robot.fsm_helpers.course_parameters import STEP_LEVEL_POSITION
 
 LOG_DIR = "/runtime_output/logs"
@@ -143,7 +143,7 @@ class MissionFSM(RobotFSM):
                     # Ensure waypoints is a list of tuples/lists
                     if waypoints and not isinstance(waypoints[0], (list, tuple)):
                         waypoints = [waypoints]
-                    self.nav_waypoints = densify_polyline(waypoints, spacing=50.0)
+                    self.nav_waypoints = densify_polyline(waypoints, spacing=SPACING_MM)
                     self.nav_waypoints_idx = 0
                     self.nav_waypoints_idx_last = 0
                     self.nav_init = True
@@ -321,7 +321,7 @@ class MissionFSM(RobotFSM):
                         tolerance=TOLERANCE_MM,
                         blocking=False,
                         max_angular_rad_s=1.0,
-                        advance_radius=50.0
+                        advance_radius=LOOKAHEAD_MM
                     )
                 elif path_planner == "lapf":
                     wp = self.nav_waypoints[self.nav_waypoints_idx]
