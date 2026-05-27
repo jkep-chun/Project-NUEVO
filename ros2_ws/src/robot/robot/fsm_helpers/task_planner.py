@@ -23,9 +23,9 @@ elif MODE == "TEST_NAV":
         {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": cp.POSE_BURGER_BUN_2},
         {"state": "NAV", "path_planner": "pp", "waypoints": [cp.WP1, cp.WP2, cp.WP3, cp.WP4]},
         {"state": "NAV", "path_planner": "lapf", "vision": "face", "waypoints": cp.POSE_FACE},
-        {"state": "NAV", "path_planner": "pp", "vision": "customer", "waypoints": cp.POSE_CUSTOMER_A},
+        {"state": "NAV", "path_planner": "pp", "vision": "customer", "waypoints": [cp.WP5, cp.POSE_CUSTOMER_A]},
         {"state": "NAV", "path_planner": "pp", "vision": "stop_sign", "waypoints": cp.POSE_STOP_SIGN},
-        {"state": "NAV", "path_planner": "pp", "waypoints": cp.WP5}
+        {"state": "NAV", "path_planner": "pp", "waypoints": cp.WP6}
     ]
 
 elif MODE == "FULL_RUN":
