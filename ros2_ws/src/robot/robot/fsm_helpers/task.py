@@ -24,7 +24,8 @@ from robot.fsm_helpers.burgerbot_parameters import (
     PLACE_SEQUENCE,
     TOLERANCE_MM, 
     VELOCITY_MM_S, 
-    LOOKAHEAD_MM
+    LOOKAHEAD_MM,
+    ADVANCE_RADIUS_MM
 )
 from robot.fsm_helpers.vision_helpers import find_traffic_light_color
 from robot.fsm_helpers.firmware_helpers import StepHomingHandle
@@ -100,9 +101,6 @@ class NavTask(Task):
 
             # Add an initial heading pivot if in purepursuit
             if self.path_planner == "pp":
-                # Densify segment for pure pursuit
-                self.seg_waypoints = densify_polyline(self.seg_waypoints, spacing=50.0)
-                
                 x, y, _ = self.robot.get_pose()
                 dx = self.seg_waypoints[0][0] - x
                 dy = self.seg_waypoints[0][1] - y
@@ -151,13 +149,13 @@ class NavTask(Task):
                 if self.path_planner == "pp":
                     print(f"Driving seg with {len(self.seg_waypoints)} waypoints")
                     self.handle = self.robot.purepursuit_follow_path(
-                        waypoints=self.seg_waypoints,
+                        waypoints=densify_polyline(self.seg_waypoints, spacing=0.10*609.6),
                         velocity=VELOCITY_MM_S,
                         lookahead=LOOKAHEAD_MM,
                         tolerance=TOLERANCE_MM,
                         blocking=False,
                         max_angular_rad_s=1.0,
-                        advance_radius=50.0
+                        advance_radius=ADVANCE_RADIUS_MM
                     )
                 elif self.path_planner == "lapf":
                     wp = self.waypoints[self.wp_idx_curr]

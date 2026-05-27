@@ -23,6 +23,7 @@ POSE_STOP_SIGN = (4*SQ, 1.5*SQ)
 # POSE_CUSTOMER_B = (4*SQ, 1.875*SQ, 0)       # TODO: Tune
 # POSE_STOP_SIGN = (4*SQ, 1.5*SQ, -90)
 
+WP0 = (0, 0)
 WP1 = (0*SQ, 6*SQ)
 WP2 = (1*SQ, 6*SQ)
 WP3 = (1*SQ, 1*SQ)

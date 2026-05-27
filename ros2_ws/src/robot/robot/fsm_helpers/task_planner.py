@@ -5,7 +5,7 @@ User-defined mission tasks. Set MODE below
 from robot.fsm_helpers import course_parameters as cp
 from robot.fsm_helpers.course_parameters import SQ
 
-MODE = "TEST_NAV2"
+MODE = "TEST_NAV_SQUARE2"
 
 if MODE == "TEST_LAPF":
     tasks = [
@@ -29,15 +29,34 @@ elif MODE == "TEST_NAV":
         {"state": "NAV", "path_planner": "pp", "waypoints": cp.WP6}
     ]
 
-elif MODE == "TEST_NAV2":
+elif MODE == "TEST_NAV_SQUARE2":
     tasks = [
         {"state": "NAV", "path_planner": "pp", "waypoints": [
             (0*SQ, 0*SQ),
             (0*SQ, 2*SQ),
-            (1*SQ, 2*SQ),
-            (1*SQ, 0*SQ)
+            (2*SQ, 2*SQ),
+            (2*SQ, 0*SQ),
+            (0*SQ, 0*SQ),
+            (0*SQ, 2*SQ),
+            (2*SQ, 2*SQ),
+            (2*SQ, 0*SQ),
+            (0*SQ, 0*SQ)
             ]
         }
+    ]
+
+elif MODE == "TEST_NAV_FULL_WPS":
+    tasks = [
+        {"state": "NAV", "path_planner": "pp", "waypoints": [cp.WP0, cp.WP1, cp.WP2, cp.WP3, cp.WP4]},
+        {"state": "NAV", "path_planner": "lapf", "waypoints": [cp.POSE_FACE]},
+        {"state": "NAV", "path_planner": "pp", "waypoints": [cp.POSE_FACE, cp.WP5, cp.WP6]}
+    ]
+
+elif MODE == "TEST_NAV_FULL_WPS":
+    tasks = [
+        {"state": "NAV", "path_planner": "pp", "waypoints": [cp.WP0, cp.WP1, cp.WP2, cp.WP3, cp.WP4]},
+        {"state": "NAV", "path_planner": "lapf", "waypoints": [cp.POSE_FACE]},
+        {"state": "NAV", "path_planner": "pp", "waypoints": [cp.POSE_FACE, cp.WP5, cp.WP6]}
     ]
 
 elif MODE == "FULL_RUN":
