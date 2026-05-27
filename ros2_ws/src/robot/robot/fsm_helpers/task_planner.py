@@ -5,7 +5,7 @@ User-defined mission tasks. Set MODE below
 from robot.fsm_helpers import course_parameters as cp
 from robot.fsm_helpers.course_parameters import SQ
 
-MODE = "TEST_NAV_SQUARE2"
+MODE = "TEST_TUNE_TURN"
 
 if MODE == "TEST_LAPF":
     tasks = [
@@ -41,6 +41,16 @@ elif MODE == "TEST_NAV_SQUARE2":
             (2*SQ, 2*SQ),
             (2*SQ, 0*SQ),
             (0*SQ, 0*SQ)
+            ]
+        }
+    ]
+
+elif MODE == "TEST_TUNE_TURN":
+    tasks = [
+        {"state": "NAV", "path_planner": "pp", "waypoints": [
+            (0*SQ, 0*SQ),
+            (0*SQ, 2*SQ),
+            (2*SQ, 2*SQ)
             ]
         }
     ]
