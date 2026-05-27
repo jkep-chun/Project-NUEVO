@@ -49,8 +49,8 @@ elif MODE == "TEST_TUNE_TURN":
     tasks = [
         {"state": "NAV", "path_planner": "pp", "waypoints": [
             (0*SQ, 0*SQ),
-            (0*SQ, 2*SQ),
-            (2*SQ, 2*SQ)
+            (0*SQ, 1*SQ),
+            (1*SQ, 1*SQ, 0)
             ]
         }
     ]
