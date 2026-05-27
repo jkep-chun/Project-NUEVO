@@ -5,6 +5,7 @@ VELOCITY_MM_S = 150.0
 LOOKAHEAD_MM = 50.0 # TODO: Tune
 
 class NavStage(IntEnum):
+    START_HEADING = auto()
     POSITION = auto()
     HEADING = auto()
 

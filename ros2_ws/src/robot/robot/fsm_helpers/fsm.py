@@ -1,5 +1,5 @@
 from __future__ import annotations
-import time, sqlite3, os
+import time, sqlite3, os, math
 from datetime import datetime
 
 from robot.robot import Robot
@@ -244,15 +244,19 @@ class MissionFSM(RobotFSM):
                 g_theta = wp[2:]
                 self.nav_waypoints_segment.append((g_x, g_y))
                 
-                if g_theta: # End of segment reached
+                # If we found a theta, this is the end of the segment
+                if g_theta:
                     break
                 
+                # Otherwise, keep going until the end of the list
                 if self.nav_waypoints_idx < len(self.nav_waypoints) - 1:
                     self.nav_waypoints_idx += 1
                 else:
+                    # Reached the end of the waypoint list without finding a theta
                     break
 
             self.nav_waypoints_idx_last = self.nav_waypoints_idx
+            print(f">>> [Task {self.task_idx}] New segment: indices {segment_start_idx} to {self.nav_waypoints_idx_last}")
             
             if g_theta:
                 self.nav_stage_sequence = [NavStage.POSITION, NavStage.HEADING]
@@ -260,6 +264,16 @@ class MissionFSM(RobotFSM):
             else:
                 self.nav_stage_sequence = [NavStage.POSITION]
                 self.nav_target_theta = None
+
+            if path_planner == "pp":
+                # Calculate heading to first waypoint of segment
+                curr_x, curr_y, _ = self.robot.get_pose()
+                first_wp = self.nav_waypoints_segment[0]
+                dx = first_wp[0] - curr_x
+                dy = first_wp[1] - curr_y
+                if math.hypot(dx, dy) > 10.0: # Only turn if far enough away
+                    self.nav_start_theta = math.degrees(math.atan2(dy, dx))
+                    self.nav_stage_sequence.insert(0, NavStage.START_HEADING)
 
             if path_planner == "lapf":
                 self.nav_waypoints_idx = segment_start_idx
@@ -277,7 +291,26 @@ class MissionFSM(RobotFSM):
             self._log(event="TELEMETRY")
             self.timer_start = time_now
 
-        if self.nav_stage == NavStage.POSITION:
+        if self.nav_stage == NavStage.START_HEADING:
+            if self.nav_handle is None:
+                print(f"Turning to face first waypoint: {self.nav_start_theta:.2f} deg")
+                self.nav_handle = self.robot.turn_to(
+                    angle_deg=self.nav_start_theta,
+                    blocking=False,
+                    tolerance_deg=5.0,
+                    timeout=None
+                )
+                return
+
+            if self.nav_handle.is_done():
+                self.nav_handle = None
+                self.nav_stage_idx += 1
+                if self.nav_stage_idx < len(self.nav_stage_sequence):
+                    self.nav_stage = self.nav_stage_sequence[self.nav_stage_idx]
+                else:
+                    self._finish_segment()
+
+        elif self.nav_stage == NavStage.POSITION:
             if self.nav_handle is None:
                 if path_planner == "pp":
                     print(f"Driving segment with {len(self.nav_waypoints_segment)} waypoints")
