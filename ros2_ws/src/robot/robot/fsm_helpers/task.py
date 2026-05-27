@@ -59,6 +59,8 @@ class NavTask(Task):
         self.waypoints = waypoints
         self.path_planner = path_planner
 
+        self.waypoints_densified = []
+
         self._is_done = False
 
         self.wp_idx_curr = 0
@@ -149,8 +151,10 @@ class NavTask(Task):
             if self.handle is None:
                 if self.path_planner == "pp":
                     print(f"Driving seg with {len(self.seg_waypoints)} waypoints")
+                    seg_waypoints_densified = densify_polyline(self.seg_waypoints, spacing=0.10*609.6)
+                    self.waypoints_densified.extend(seg_waypoints_densified)
                     self.handle = self.robot.purepursuit_follow_path(
-                        waypoints=densify_polyline(self.seg_waypoints, spacing=0.10*609.6),
+                        waypoints=seg_waypoints_densified,
                         velocity=VELOCITY_MM_S,
                         lookahead=LOOKAHEAD_MM,
                         tolerance=TOLERANCE_MM,
@@ -232,6 +236,12 @@ class NavTask(Task):
             if len(wx) > 0:
                 plt.text(wx[0], wy[0], ' Start', color='green', verticalalignment='bottom', fontsize=9)
                 plt.text(wx[-1], wy[-1], ' End', color='red', verticalalignment='bottom', fontsize=9)
+
+        # Plot current task intermediate waypoints
+        if self.waypoints_densified:
+            wx_d = [wp_d[0] for wp_d in self.waypoints_densified]
+            wy_d = [wp_d[1] for wp_d in self.waypoints_densified]
+            plt.scatter(wx_d, wy_d, color='green', marker='o', s=20, zorder=6, alpha=0.5)
 
         # Current robot pose
         curr_x, curr_y, _ = self.robot.get_pose()
