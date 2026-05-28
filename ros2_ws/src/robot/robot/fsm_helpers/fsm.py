@@ -3,24 +3,17 @@ import time, sqlite3, os, math
 from datetime import datetime
 
 from robot.robot import Robot
-from robot.hardware_map import Button, Stepper, StepMoveType
+from robot.hardware_map import Button
 from robot.robot_fsm import RobotFSM
-from robot.util import densify_polyline
 
 
 # More helpers
 # TODO: change path when complete
-from robot.fsm_helpers.vision_helpers import find_traffic_light_color
 from robot.fsm_helpers.firmware_helpers import configure_robot, start_robot, reset_mission_pose, home_lift, home_gripper
 from robot.fsm_helpers.task_planner import tasks
-from robot.fsm_helpers.burgerbot_parameters import TOLERANCE_MM, VELOCITY_MM_S, LOOKAHEAD_MM, SPACING_MM, NavStage, ManipStage, PICK_SEQUENCE, PLACE_SEQUENCE
-from robot.fsm_helpers.course_parameters import STEP_LEVEL_POSITION
+from robot.fsm_helpers.task import build_task, Task
 
 LOG_DIR = "/runtime_output/logs"
-
-ENABLE_CAM = False
-ENABLE_GRIPPER = False
-ENABLE_LIFT = False
 
 class MissionFSM(RobotFSM):
     def __init__(self, robot: Robot, task_list: list[dict]):
@@ -28,30 +21,16 @@ class MissionFSM(RobotFSM):
 
         # Tasks
         self.tasks = task_list
-        self.task = None
-        self.task_idx = None
-        self.task_type = None
+        self.current_task: Task = None
+        self.task_idx = 0
 
-        # Motion handles
+        # Motion handles (mostly managed by tasks now, but kept for homing)
         self.homing_lift_handle = None
         self.homing_gripper_handle = None
-        self.nav_handle = None
-        self.manip_handle = None
 
         # Execution
         self.timer_start = None
         self.execution_print_period = 1.0
-        self.nav_stage_sequence = []
-        self.nav_stage = None
-        self.nav_stage_idx = 0
-        self.nav_waypoints = []
-        self.nav_waypoints_segment = []
-        self.nav_waypoints_idx = None
-        self.nav_waypoints_idx_last = None
-        self.nav_init = False
-        self.manip_sequence = []
-        self.manip_stage = None
-        self.manip_stage_idx = 0
         
         # Transitions
         self.add_transition("INIT", "to_execute", "EXECUTE")
@@ -103,6 +82,9 @@ class MissionFSM(RobotFSM):
         self.conn.commit()
 
     def _advance_task(self) -> None:
+        if self.current_task:
+            self.current_task.on_exit()
+        
         self.task_idx += 1
         print(f"Advancing to task {self.task_idx}...")
         self._log(event="ADVANCE_TASK")
@@ -114,6 +96,7 @@ class MissionFSM(RobotFSM):
 
         if state == "INIT":
             self.task_idx = 0
+            self.current_task = None
             print("\n>>> INIT - STARTING ROBOT")
             start_robot(self.robot)
             reset_mission_pose(self.robot)
@@ -133,29 +116,9 @@ class MissionFSM(RobotFSM):
 
             if self.task_idx < len(self.tasks):
                 print(f"\n>>> EXECUTE - TASK {self.task_idx}: {self.tasks[self.task_idx]}")
-                self.task = self.tasks[self.task_idx]
-                self.task_type = self.task.get("state")
-
-                if self.task_type == "NAV":
-                    self.nav_handle = None # Reset drive handle
-                    self.nav_stage = NavStage.POSITION
-                    waypoints = self.task.get("waypoints")
-                    # Ensure waypoints is a list of tuples/lists
-                    if waypoints and not isinstance(waypoints[0], (list, tuple)):
-                        waypoints = [waypoints]
-                    self.nav_waypoints = densify_polyline(waypoints, spacing=SPACING_MM)
-                    self.nav_waypoints_idx = 0
-                    self.nav_waypoints_idx_last = 0
-                    self.nav_init = True
-                
-                elif self.task_type == "MANIP":
-                    cmd = self.task.get("cmd")
-                    if cmd == "pick":
-                        self.manip_sequence = PICK_SEQUENCE
-                    elif cmd == "place":
-                        self.manip_sequence = PLACE_SEQUENCE
-                    self.manip_stage_idx = 0
-
+                task_dict = self.tasks[self.task_idx]
+                self.current_task = build_task(self.robot, task_dict)
+                self.current_task.on_enter()
             else:
                 self.trigger("to_done")
 
@@ -164,8 +127,6 @@ class MissionFSM(RobotFSM):
             if self.conn:
                 self.conn.close()
                 self.conn = None
-            # self.robot.step_disable()
-            # self.robot.disable_servo()
             print("\n>>> DONE - TASKS COMPLETE; PRESS BTN_1 TO REINITIALIZE")
 
 
@@ -189,14 +150,10 @@ class MissionFSM(RobotFSM):
                 self.trigger("to_init")
         
         elif state_str == "EXECUTE":
-            if self.task_type == "WAIT":
-                self._handle_wait(self.task)
-            elif self.task_type == "NAV":
-                self._handle_nav(self.task)
-            # elif self.task_type == "MANIP":
-            #     self._handle_manip(self.task)
-            # elif self.task_type == "IDENT":
-            #     self._handle_ident(self.task)
+            if self.current_task:
+                self.current_task.update()
+                if self.current_task.is_done():
+                    self.trigger("next")
 
         elif state_str == "DONE":
             if self.robot.was_button_pressed(Button.BTN_1):
