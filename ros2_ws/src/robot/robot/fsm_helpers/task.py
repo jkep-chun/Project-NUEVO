@@ -5,7 +5,6 @@ import time
 import os
 
 from robot.robot import Robot
-from robot.util import densify_polyline
 from robot.hardware_map import (
     Button, 
     LIFT_STEPPER, 
@@ -51,97 +50,65 @@ class Task:
 
 
 class NavTask(Task):
-    def __init__(self, robot, waypoints, path_planner="pp"):
+    def __init__(self, robot, waypoints, goal_heading=None, path_planner="pp"):
         super().__init__(robot)
         # Ensure waypoints is a list of tuples/lists
         if waypoints and not isinstance(waypoints[0], (list, tuple)):
             waypoints = [waypoints]
         self.waypoints = waypoints
+        self.goal_heading = goal_heading
         self.path_planner = path_planner
 
-        self.waypoints_densified = []
-
         self._is_done = False
-
-        self.wp_idx_curr = 0
-        self.wp_idx_last = 0
-
+        self.wp_lapf_idx = 0
         self.handle = None
+        self.start_heading = None
 
-        self.seg_init = True
-        self.seg_waypoints = []
-        self.seg_start_θ = None
-        self.seg_heading = None
-
-        self.stage = None
         self.stage_idx = 0
         self.stage_sequence = []
 
-    def update(self):
-        if self.seg_init:
-            seg_idx_start = self.wp_idx_curr
-            self.seg_waypoints.clear()
-            self.seg_heading = None
-            self.stage_sequence.clear()
+        if self.waypoints:
             self.stage_sequence.append(NavStage.POSITION)
-
-            while self.wp_idx_curr < len(self.waypoints):
-                wp = self.waypoints[self.wp_idx_curr]
-                wp_x, wp_y, wp_θ = wp[0], wp[1], wp[2:]
-                self.seg_waypoints.append((wp_x, wp_y))
-
-                if wp_θ:
-                    self.seg_heading = float(wp_θ[0])
-                    self.stage_sequence.append(NavStage.HEADING)
-                    break
-
-                if self.wp_idx_curr < len(self.waypoints) - 1:
-                    self.wp_idx_curr += 1
-                else:
-                    break
-            
-            self.wp_idx_last = self.wp_idx_curr
-
             # Add an initial heading pivot if in purepursuit
             if self.path_planner == "pp":
                 x, y, _ = self.robot.get_pose()
-                dx = self.seg_waypoints[0][0] - x
-                dy = self.seg_waypoints[0][1] - y
-                if math.hypot(dx, dy) > 10.0:
-                    self.seg_start_θ = math.degrees(math.atan2(dy, dx))
-                    self.stage_sequence.insert(0, NavStage.START_HEADING)
-            elif self.path_planner == "lapf":
-                self.wp_idx_curr = seg_idx_start
+                dx = self.waypoints[0][0] - x
+                dy = self.waypoints[0][1] - y
+                if math.hypot(dx, dy) > TOLERANCE_MM:
+                    self.start_heading = math.degrees(math.atan2(dy, dx))
+                    self.stage_sequence.insert(0, NavStage.START_HEADING)   
 
-            # Reset for new stage sequence
-            self.stage_idx = 0
+        # Add goal heading if provided
+        if self.goal_heading is not None:
+            self.stage_sequence.append(NavStage.HEADING)
+
+        if self.stage_sequence:
+            # Set stage sequence
             self.stage = self.stage_sequence[self.stage_idx]
-            self.handle = None
-            self.seg_init = False
+        else:
+            self.stage = None
+            self._is_done = True
+
+    def update(self):
 
         if self.handle and self.handle.is_done():
             self.handle = None
-            if self.stage == NavStage.POSITION and self.path_planner == "lapf" and self.wp_idx_curr < self.wp_idx_last:
-                self.wp_idx_curr += 1
-                # Stay in POSITION stage, handle will be re-initialized below
+            if self.stage == NavStage.POSITION and self.path_planner == "lapf" and self.wp_lapf_idx < len(self.waypoints) - 1:
+                # Stay in NavStage.POSITION
+                self.wp_lapf_idx += 1
             else:
                 self.stage_idx += 1
                 if self.stage_idx < len(self.stage_sequence):
                     self.stage = self.stage_sequence[self.stage_idx]
                 else:
-                    self.wp_idx_curr = self.wp_idx_last + 1
-                    
-                    if self.wp_idx_curr < len(self.waypoints):
-                        self.seg_init = True
-                    else:
-                        self._is_done = True
-                        return
+                    self._is_done = True
+                    return
 
         if self.stage == NavStage.START_HEADING:
             if self.handle is None:
-                print(f"Turning to face first waypoint: {self.seg_start_θ:.2f} deg")
+                print(f"Turning to face first waypoint: {self.start_heading:.2f} deg")
                 self.handle = self.robot.turn_to(
-                    angle_deg=self.seg_start_θ,
+                    angle_deg=self.start_heading,
                     blocking=False,
                     tolerance_deg=5.0,
                     timeout=None
@@ -150,11 +117,9 @@ class NavTask(Task):
         elif self.stage == NavStage.POSITION:
             if self.handle is None:
                 if self.path_planner == "pp":
-                    print(f"Driving seg with {len(self.seg_waypoints)} waypoints")
-                    seg_waypoints_densified = densify_polyline(self.seg_waypoints, spacing=0.10*609.6)
-                    self.waypoints_densified.extend(seg_waypoints_densified)
+                    print(f"Driving seg with {len(self.waypoints)} waypoints")
                     self.handle = self.robot.purepursuit_follow_path(
-                        waypoints=seg_waypoints_densified,
+                        waypoints=self.waypoints,
                         velocity=VELOCITY_MM_S,
                         lookahead=LOOKAHEAD_MM,
                         tolerance=TOLERANCE_MM,
@@ -163,7 +128,7 @@ class NavTask(Task):
                         advance_radius=ADVANCE_RADIUS_MM
                     )
                 elif self.path_planner == "lapf":
-                    wp = self.waypoints[self.wp_idx_curr]
+                    wp = self.waypoints[self.wp_lapf_idx]
                     tx, ty = wp[0], wp[1]
                     print(f"Driving (LAPF) toward: ({tx:.2f},{ty:.2f})")
                     self.handle = self.robot.lapf_to_goal(
@@ -183,9 +148,9 @@ class NavTask(Task):
 
         elif self.stage == NavStage.HEADING:
             if self.handle is None:
-                print(f"Turning to: {self.seg_heading:.2f} deg")
+                print(f"Turning to: {self.goal_heading:.2f} deg")
                 self.handle = self.robot.turn_to(
-                    angle_deg=self.seg_heading,
+                    angle_deg=self.goal_heading,
                     blocking=False,
                     tolerance_deg=2.0,
                     timeout=None
@@ -236,12 +201,6 @@ class NavTask(Task):
             if len(wx) > 0:
                 plt.text(wx[0], wy[0], ' Start', color='green', verticalalignment='bottom', fontsize=9)
                 plt.text(wx[-1], wy[-1], ' End', color='red', verticalalignment='bottom', fontsize=9)
-
-        # Plot current task intermediate waypoints
-        if self.waypoints_densified:
-            wx_d = [wp_d[0] for wp_d in self.waypoints_densified]
-            wy_d = [wp_d[1] for wp_d in self.waypoints_densified]
-            plt.scatter(wx_d, wy_d, color='green', marker='o', s=20, zorder=6, alpha=0.5)
 
         # Current robot pose
         curr_x, curr_y, _ = self.robot.get_pose()
@@ -406,7 +365,12 @@ class PlanTask(Task):
 def build_task(robot: Robot, task_dict: dict) -> Task:
     state = task_dict.get("state")
     if state == "NAV":
-        return NavTask(robot, task_dict.get("waypoints"), task_dict.get("path_planner", "pp"))
+        return NavTask(
+            robot=robot,
+            waypoints=task_dict.get("waypoints"),
+            goal_heading=task_dict.get("goal_heading"),
+            path_planner=task_dict.get("path_planner", "pp") # Defaults to "pp" over None
+        )
     elif state == "WAIT":
         return WaitTask(robot, task_dict)
     elif state == "MANIP":
