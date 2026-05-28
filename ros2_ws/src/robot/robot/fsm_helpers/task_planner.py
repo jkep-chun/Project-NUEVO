@@ -5,7 +5,11 @@ User-defined mission tasks. Set MODE below
 from robot.fsm_helpers import course_parameters as cp
 from robot.fsm_helpers.course_parameters import SQ
 
+<<<<<<< dev_navigation
 MODE = "TEST_NAV_FULL_WPS_DENSE"
+=======
+MODE = "TEST_IDENT"
+>>>>>>> dev
 
 if MODE == "TEST_LAPF":
     tasks = [
@@ -17,6 +21,7 @@ elif MODE == "TEST_CAM":
         {"state": "WAIT", "trigger": "green_light"}
     ]
 
+<<<<<<< dev_navigation
 elif MODE == "TEST_NAV":
     tasks = [
         {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": cp.POSE_BURGER_BUN_1},
@@ -62,6 +67,13 @@ elif MODE == "TEST_NAV_FULL_WPS":
         {"state": "NAV", "path_planner": "pp", "waypoints": [cp.POSE_FACE, cp.WP5, cp.WP6]}
     ]
 
+=======
+elif MODE == "TEST_IDENT":
+    tasks = [
+        {"state": "IDENT"}
+    ]
+    
+>>>>>>> dev
 elif MODE == "FULL_RUN":
     tasks = [
         {"state": "WAIT", "trigger": "green_light"},
