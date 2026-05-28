@@ -2,8 +2,11 @@ from enum import IntEnum, auto
 
 TOLERANCE_MM = 50.0
 VELOCITY_MM_S = 150.0
+LOOKAHEAD_MM = 609.6*0.707
+ADVANCE_RADIUS_MM = 609.6*0.5
 
 class NavStage(IntEnum):
+    START_HEADING = auto()
     POSITION = auto()
     HEADING = auto()
 
