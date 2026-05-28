@@ -4,7 +4,7 @@ User-defined mission tasks. Set MODE below
 
 from robot.fsm_helpers import course_parameters
 
-MODE = "TEST_LAPF"
+MODE = "TEST_IDENT"
 
 if MODE == "TEST_LAPF":
     tasks = [
@@ -16,6 +16,11 @@ elif MODE == "TEST_CAM":
         {"state": "WAIT", "trigger": "green_light"}
     ]
 
+elif MODE == "TEST_IDENT":
+    tasks = [
+        {"state": "IDENT"}
+    ]
+    
 elif MODE == "FULL_RUN":
     tasks = [
         {"state": "WAIT", "trigger": "green_light"},
