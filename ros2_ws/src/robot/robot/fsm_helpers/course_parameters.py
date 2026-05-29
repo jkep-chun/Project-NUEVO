@@ -5,6 +5,7 @@ Course-specific geometry
 SQ = 609.6 # Length of one square in mm
 
 STEP_LEVEL_POSITION = 1000 # TODO: Measure
+MAX_TURN_FOR_TRAFFIC_LIGHT_DEG = 30 # TODO: Verify
 
 POSE_TRAFFIC_LIGHT  = (0*SQ,    0*SQ)
 POSE_BURGER_BUN_1   = (0*SQ,    1.75*SQ)  # TODO: Tune

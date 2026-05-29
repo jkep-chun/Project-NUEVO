@@ -7,10 +7,11 @@ import os
 from robot.robot import Robot
 import robot.hardware_map as hm
 import robot.fsm_helpers.burgerbot_parameters as bp
+import robot.fsm_helpers.course_parameters as cp
 import robot.fsm_helpers.vision_helpers as vh
 import robot.fsm_helpers.firmware_helpers as fh
 
-ENABLE_CAM = False
+ENABLE_CAM = True
 
 class Task:
     def __init__(self, robot: Robot):
@@ -216,15 +217,43 @@ class WaitTask(Task):
         super().__init__(robot)
         self._params = params
         self._is_done = False
+        self.handle = None
+        self.turn_direction = 1
 
     def update(self):
         if not ENABLE_CAM:
             if self.robot.was_button_pressed(hm.Button.BTN_1):
                 print("trigger - BTN_1 (debug)")
                 self._is_done = True
-        elif self._params.get("trigger") == "green_light" and vh.find_traffic_light_color(self.robot) == "green":
-                print("trigger - green light detected")
-                self._is_done = True
+            return
+
+        if self._params.get("trigger") == "green_light":
+            if vh.sees_traffic_light(self.robot):
+                if self.handle:
+                    self.handle.cancel()
+                    self.handle = None
+                
+                detected_color = vh.find_traffic_light_color(self.robot)
+                if detected_color == "green":
+                    print("trigger - green light detected")
+                    self._is_done = True
+                elif detected_color == "red":
+                    # Stay here and wait for green
+                    pass
+            else:
+                if self.handle is None:
+                    print(f"Scanning for traffic light (dir={self.turn_direction})")
+                    self.handle = self.robot.turn_by(
+                        delta_deg=self.turn_direction * cp.MAX_TURN_FOR_TRAFFIC_LIGHT_DEG,
+                        blocking=False,
+                        tolerance_deg=2.0,
+                        timeout=None
+                    )
+
+                elif self.handle.is_done():
+                    self.turn_direction = -self.turn_direction
+                    self.handle = None
+                
 
     def is_done(self) -> bool:
         return self._is_done
@@ -258,7 +287,7 @@ class ManipTask(Task):
             print(f"bp.ManipStage: {stage.name}")
             if stage == bp.ManipStage.LEVEL:
                 self.robot.step_enable(hm.LIFT_STEPPER)
-                self.robot.step_move(hm.LIFT_STEPPER, hm.LIFT_EXTEND_STEPS, StepMoveType.ABSOLUTE, blocking=False)
+                self.robot.step_move(hm.LIFT_STEPPER, hm.LIFT_EXTEND_STEPS, hm.StepMoveType.ABSOLUTE, blocking=False)
                 self.handle = fh.StepHomingHandle(self.robot, hm.LIFT_STEPPER) # Reuse StepHomingHandle for non-blocking move
             elif stage == bp.ManipStage.OPEN:
                 self.robot.enable_servo(hm.GRIPPER_SERVO)
@@ -274,12 +303,12 @@ class ManipTask(Task):
                 self.handle = self.robot.move_backward(distance=100.0, velocity=bp.VELOCITY_MM_S, tolerance=bp.TOLERANCE_MM, blocking=False)
             elif stage == bp.ManipStage.LOWER:
                 self.robot.step_enable(hm.LIFT_STEPPER)
-                self.robot.step_move(hm.LIFT_STEPPER, hm.LIFT_LOWER_STEPS, StepMoveType.RELATIVE, blocking=False)
-                self.handle = StepHomingHandle(self.robot, hm.LIFT_STEPPER)
+                self.robot.step_move(hm.LIFT_STEPPER, hm.LIFT_LOWER_STEPS, hm.StepMoveType.RELATIVE, blocking=False)
+                self.handle = fh.StepHomingHandle(self.robot, hm.LIFT_STEPPER)
             elif stage == bp.ManipStage.RAISE:
                 self.robot.step_enable(hm.LIFT_STEPPER)
-                self.robot.step_move(hm.LIFT_STEPPER, hm.LIFT_BUFFER_STEPS, StepMoveType.RELATIVE, blocking=False)
-                self.handle = StepHomingHandle(self.robot, hm.LIFT_STEPPER)
+                self.robot.step_move(hm.LIFT_STEPPER, hm.LIFT_BUFFER_STEPS, hm.StepMoveType.RELATIVE, blocking=False)
+                self.handle = fh.StepHomingHandle(self.robot, hm.LIFT_STEPPER)
             
             self.stage_init = False
 
@@ -345,7 +374,5 @@ def build_task(robot: Robot, task_dict: dict) -> Task:
         return ManipTask(robot, task_dict)
     elif state == "IDENT":
         return IdentTask(robot)
-    elif state == "PLAN":
-        return PlanTask(robot)
     else:
         return Task(robot)

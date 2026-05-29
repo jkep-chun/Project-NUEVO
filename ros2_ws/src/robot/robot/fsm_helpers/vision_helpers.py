@@ -41,13 +41,23 @@ def find_traffic_light_color(robot: Robot) -> str | None:
 
     return best_color
 
+def sees_traffic_light(robot: Robot) -> bool:
+    """Return True if the robot sees a recent stop sign detection."""
+    if not robot.is_vision_active(timeout_s=VISION_STALE_SEC):
+        return False
+    
+    return robot.has_detection(
+        class_name="traffic light",
+        min_confidence=MIN_TRAFFIC_LIGHT_CONFIDENCE
+    )
+
 def sees_stop_sign(robot: Robot) -> bool:
     """Return True if the robot sees a recent stop sign detection."""
     if not robot.is_vision_active(timeout_s=VISION_STALE_SEC):
         return False
 
     return robot.has_detection(
-        "stop sign",
+        class_name="stop sign",
         min_confidence=MIN_STOP_SIGN_CONFIDENCE,
     )
 
@@ -57,7 +67,7 @@ def sees_person(robot: Robot) -> bool:
         return False
 
     return robot.has_detection(
-        "person",
+        class_name="person",
         min_confidence=MIN_PERSON_CONFIDENCE,
     )
 
