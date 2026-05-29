@@ -219,6 +219,8 @@ class WaitTask(Task):
         self._is_done = False
         self.handle = None
         self.turn_direction = 1
+        self.rel_angle = 0
+        self.rate_factor = 1
 
     def update(self):
         if not ENABLE_CAM:
@@ -244,14 +246,16 @@ class WaitTask(Task):
                 if self.handle is None:
                     print(f"Scanning for traffic light (dir={self.turn_direction})")
                     self.handle = self.robot.turn_by(
-                        delta_deg=self.turn_direction * cp.MAX_TURN_FOR_TRAFFIC_LIGHT_DEG,
+                        delta_deg=self.turn_direction * self.rate_factor,
                         blocking=False,
                         tolerance_deg=2.0,
                         timeout=None
                     )
 
                 elif self.handle.is_done():
-                    self.turn_direction = -self.turn_direction
+                    self.rel_angle += self.turn_direction
+                    if self.rel_angle >= cp.MAX_TURN_FOR_TRAFFIC_LIGHT_DEG or self.rel_angle <= -cp.MAX_TURN_FOR_TRAFFIC_LIGHT_DEG:
+                        self.turn_direction = -self.turn_direction
                     self.handle = None
                 
 
