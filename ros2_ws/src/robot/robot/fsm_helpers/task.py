@@ -5,30 +5,10 @@ import time
 import os
 
 from robot.robot import Robot
-from robot.hardware_map import (
-    Button, 
-    LIFT_STEPPER, 
-    LIFT_EXTEND_STEPS, 
-    LIFT_LOWER_STEPS, 
-    LIFT_BUFFER_STEPS,
-    GRIPPER_SERVO,
-    GRIPPER_OPEN_DEG,
-    GRIPPER_CLOSE_DEG,
-    StepMoveType,
-    DEFAULT_FSM_HZ
-)
-from robot.fsm_helpers.burgerbot_parameters import (
-    NavStage, 
-    ManipStage,
-    PICK_SEQUENCE, 
-    PLACE_SEQUENCE,
-    TOLERANCE_MM, 
-    VELOCITY_MM_S, 
-    LOOKAHEAD_MM,
-    ADVANCE_RADIUS_MM
-)
-from robot.fsm_helpers.vision_helpers import find_traffic_light_color
-from robot.fsm_helpers.firmware_helpers import StepHomingHandle
+import robot.hardware_map as hm
+import robot.fsm_helpers.burgerbot_parameters as bp
+import robot.fsm_helpers.vision_helpers as vh
+import robot.fsm_helpers.firmware_helpers as fh
 
 ENABLE_CAM = False
 
@@ -68,19 +48,19 @@ class NavTask(Task):
         self.stage_sequence = []
 
         if self.waypoints:
-            self.stage_sequence.append(NavStage.POSITION)
+            self.stage_sequence.append(bp.NavStage.POSITION)
             # Add an initial heading pivot if in purepursuit
             if self.path_planner == "pp":
                 x, y, _ = self.robot.get_pose()
                 dx = self.waypoints[0][0] - x
                 dy = self.waypoints[0][1] - y
-                if math.hypot(dx, dy) > TOLERANCE_MM:
+                if math.hypot(dx, dy) > bp.TOLERANCE_MM:
                     self.start_heading = math.degrees(math.atan2(dy, dx))
-                    self.stage_sequence.insert(0, NavStage.START_HEADING)   
+                    self.stage_sequence.insert(0, bp.NavStage.START_HEADING)   
 
         # Add goal heading if provided
         if self.goal_heading is not None:
-            self.stage_sequence.append(NavStage.HEADING)
+            self.stage_sequence.append(bp.NavStage.HEADING)
 
         if self.stage_sequence:
             # Set stage sequence
@@ -93,8 +73,8 @@ class NavTask(Task):
 
         if self.handle and self.handle.is_done():
             self.handle = None
-            if self.stage == NavStage.POSITION and self.path_planner == "lapf" and self.wp_lapf_idx < len(self.waypoints) - 1:
-                # Stay in NavStage.POSITION
+            if self.stage == bp.NavStage.POSITION and self.path_planner == "lapf" and self.wp_lapf_idx < len(self.waypoints) - 1:
+                # Stay in bp.NavStage.POSITION
                 self.wp_lapf_idx += 1
             else:
                 self.stage_idx += 1
@@ -104,7 +84,7 @@ class NavTask(Task):
                     self._is_done = True
                     return
 
-        if self.stage == NavStage.START_HEADING:
+        if self.stage == bp.NavStage.START_HEADING:
             if self.handle is None:
                 print(f"Turning to face first waypoint: {self.start_heading:.2f} deg")
                 self.handle = self.robot.turn_to(
@@ -114,18 +94,18 @@ class NavTask(Task):
                     timeout=None
                 )
 
-        elif self.stage == NavStage.POSITION:
+        elif self.stage == bp.NavStage.POSITION:
             if self.handle is None:
                 if self.path_planner == "pp":
                     print(f"Driving seg with {len(self.waypoints)} waypoints")
                     self.handle = self.robot.purepursuit_follow_path(
                         waypoints=self.waypoints,
-                        velocity=VELOCITY_MM_S,
-                        lookahead=LOOKAHEAD_MM,
-                        tolerance=TOLERANCE_MM,
+                        velocity=bp.VELOCITY_MM_S,
+                        lookahead=bp.LOOKAHEAD_MM,
+                        tolerance=bp.TOLERANCE_MM,
                         blocking=False,
                         max_angular_rad_s=1.0,
-                        advance_radius=ADVANCE_RADIUS_MM
+                        advance_radius=bp.ADVANCE_RADIUS_MM
                     )
                 elif self.path_planner == "lapf":
                     wp = self.waypoints[self.wp_lapf_idx]
@@ -133,8 +113,8 @@ class NavTask(Task):
                     print(f"Driving (LAPF) toward: ({tx:.2f},{ty:.2f})")
                     self.handle = self.robot.lapf_to_goal(
                         x=tx, y=ty,
-                        velocity=VELOCITY_MM_S,
-                        tolerance=TOLERANCE_MM,
+                        velocity=bp.VELOCITY_MM_S,
+                        tolerance=bp.TOLERANCE_MM,
                         leash_length_mm=50,
                         repulsion_range_mm=350.0,
                         target_speed_mm_s=200.0,
@@ -146,7 +126,7 @@ class NavTask(Task):
                         blocking=False
                     )
 
-        elif self.stage == NavStage.HEADING:
+        elif self.stage == bp.NavStage.HEADING:
             if self.handle is None:
                 print(f"Turning to: {self.goal_heading:.2f} deg")
                 self.handle = self.robot.turn_to(
@@ -234,16 +214,15 @@ class NavTask(Task):
 class WaitTask(Task):
     def __init__(self, robot, params: dict):
         super().__init__(robot)
-        self._is_done = False
         self._params = params
+        self._is_done = False
 
     def update(self):
-        if self._params.get("trigger") == "green_light":
-            if not ENABLE_CAM:
-                if self.robot.was_button_pressed(Button.BTN_1):
-                    print("trigger - BTN_1 (debug)")
-                    self._is_done = True
-            elif find_traffic_light_color(self.robot) == "green":
+        if not ENABLE_CAM:
+            if self.robot.was_button_pressed(hm.Button.BTN_1):
+                print("trigger - BTN_1 (debug)")
+                self._is_done = True
+        elif self._params.get("trigger") == "green_light" and vh.find_traffic_light_color(self.robot) == "green":
                 print("trigger - green light detected")
                 self._is_done = True
 
@@ -257,9 +236,9 @@ class ManipTask(Task):
         self._is_done = False
         cmd = params.get("cmd")
         if cmd == "pick":
-            self.sequence = PICK_SEQUENCE
+            self.sequence = bp.PICK_SEQUENCE
         elif cmd == "place":
-            self.sequence = PLACE_SEQUENCE
+            self.sequence = bp.PLACE_SEQUENCE
         else:
             self.sequence = []
             self._is_done = True
@@ -276,31 +255,31 @@ class ManipTask(Task):
         stage = self.sequence[self.idx]
 
         if self.stage_init:
-            print(f"ManipStage: {stage.name}")
-            if stage == ManipStage.LEVEL:
-                self.robot.step_enable(LIFT_STEPPER)
-                self.robot.step_move(LIFT_STEPPER, LIFT_EXTEND_STEPS, StepMoveType.ABSOLUTE, blocking=False)
-                self.handle = StepHomingHandle(self.robot, LIFT_STEPPER) # Reuse StepHomingHandle for non-blocking move
-            elif stage == ManipStage.OPEN:
-                self.robot.enable_servo(GRIPPER_SERVO)
-                self.robot.set_servo(GRIPPER_SERVO, GRIPPER_OPEN_DEG)
+            print(f"bp.ManipStage: {stage.name}")
+            if stage == bp.ManipStage.LEVEL:
+                self.robot.step_enable(hm.LIFT_STEPPER)
+                self.robot.step_move(hm.LIFT_STEPPER, hm.LIFT_EXTEND_STEPS, StepMoveType.ABSOLUTE, blocking=False)
+                self.handle = fh.StepHomingHandle(self.robot, hm.LIFT_STEPPER) # Reuse StepHomingHandle for non-blocking move
+            elif stage == bp.ManipStage.OPEN:
+                self.robot.enable_servo(hm.GRIPPER_SERVO)
+                self.robot.set_servo(hm.GRIPPER_SERVO, hm.GRIPPER_OPEN_DEG)
                 self.timer_start = time.monotonic()
-            elif stage == ManipStage.CLOSE:
-                self.robot.enable_servo(GRIPPER_SERVO)
-                self.robot.set_servo(GRIPPER_SERVO, GRIPPER_CLOSE_DEG)
+            elif stage == bp.ManipStage.CLOSE:
+                self.robot.enable_servo(hm.GRIPPER_SERVO)
+                self.robot.set_servo(hm.GRIPPER_SERVO, hm.GRIPPER_CLOSE_DEG)
                 self.timer_start = time.monotonic()
-            elif stage == ManipStage.FORWARD:
-                self.handle = self.robot.move_forward(distance=100.0, velocity=VELOCITY_MM_S, tolerance=TOLERANCE_MM, blocking=False)
-            elif stage == ManipStage.RETREAT:
-                self.handle = self.robot.move_backward(distance=100.0, velocity=VELOCITY_MM_S, tolerance=TOLERANCE_MM, blocking=False)
-            elif stage == ManipStage.LOWER:
-                self.robot.step_enable(LIFT_STEPPER)
-                self.robot.step_move(LIFT_STEPPER, LIFT_LOWER_STEPS, StepMoveType.RELATIVE, blocking=False)
-                self.handle = StepHomingHandle(self.robot, LIFT_STEPPER)
-            elif stage == ManipStage.RAISE:
-                self.robot.step_enable(LIFT_STEPPER)
-                self.robot.step_move(LIFT_STEPPER, LIFT_BUFFER_STEPS, StepMoveType.RELATIVE, blocking=False)
-                self.handle = StepHomingHandle(self.robot, LIFT_STEPPER)
+            elif stage == bp.ManipStage.FORWARD:
+                self.handle = self.robot.move_forward(distance=100.0, velocity=bp.VELOCITY_MM_S, tolerance=bp.TOLERANCE_MM, blocking=False)
+            elif stage == bp.ManipStage.RETREAT:
+                self.handle = self.robot.move_backward(distance=100.0, velocity=bp.VELOCITY_MM_S, tolerance=bp.TOLERANCE_MM, blocking=False)
+            elif stage == bp.ManipStage.LOWER:
+                self.robot.step_enable(hm.LIFT_STEPPER)
+                self.robot.step_move(hm.LIFT_STEPPER, hm.LIFT_LOWER_STEPS, StepMoveType.RELATIVE, blocking=False)
+                self.handle = StepHomingHandle(self.robot, hm.LIFT_STEPPER)
+            elif stage == bp.ManipStage.RAISE:
+                self.robot.step_enable(hm.LIFT_STEPPER)
+                self.robot.step_move(hm.LIFT_STEPPER, hm.LIFT_BUFFER_STEPS, StepMoveType.RELATIVE, blocking=False)
+                self.handle = StepHomingHandle(self.robot, hm.LIFT_STEPPER)
             
             self.stage_init = False
 
@@ -330,33 +309,22 @@ class IdentTask(Task):
     def __init__(self, robot):
         super().__init__(robot)
         self._is_done = False
-        self.timer_start = None
+        self.timeout_counter = 0
 
     def update(self):
-        if self.timer_start is None:
-            print("IdentTask: Processing...")
-            self.timer_start = time.monotonic()
-        
-        if time.monotonic() - self.timer_start > 2.0:
-            self._is_done = True
-
-    def is_done(self) -> bool:
-        return self._is_done
-
-
-class PlanTask(Task):
-    def __init__(self, robot):
-        super().__init__(robot)
-        self._is_done = False
-        self.timer_start = None
-
-    def update(self):
-        if self.timer_start is None:
-            print("PlanTask: Planning...")
-            self.timer_start = time.monotonic()
-        
-        if time.monotonic() - self.timer_start > 1.0:
-            self._is_done = True
+        if vh.capture_identity_person():
+            score_1 = vh.image_match_score(vh.IDENTIFY_PERSON_PATH, vh.SUSPECT_1_PATH)
+            score_2 = vh.image_match_score(vh.IDENTIFY_PERSON_PATH, vh.SUSPECT_2_PATH)
+            if score_1 < vh.MIN_IMAGE_MATCH_SCORE and score_2 < vh.MIN_IMAGE_MATCH_SCORE:
+                print("No confident image match found.")
+            elif score_1 > score_2:
+                # TODO: SET INTERNAL VARIABLE
+                self._is_done = True
+            elif score_2 > score_1:
+                # TODO: SET INTERNAL VARIABLE
+                self._is_done = True
+        else:
+            self.timeout_counter += 1
 
     def is_done(self) -> bool:
         return self._is_done

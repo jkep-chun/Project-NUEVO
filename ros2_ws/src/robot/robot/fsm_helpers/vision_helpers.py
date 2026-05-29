@@ -159,6 +159,3 @@ def choose_matching_suspect(min_score: int = MIN_IMAGE_MATCH_SCORE) -> str | Non
 
     print("Tie between suspect_1 and suspect_2.")
     return None
-    # functions that:
-        # gender detected, return male or female
-    
