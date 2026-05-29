@@ -217,10 +217,13 @@ class WaitTask(Task):
         super().__init__(robot)
         self._params = params
         self._is_done = False
-        self.handle = None
         self.turn_direction = 1
-        self.rel_angle = 0
-        self.rate_factor = 1
+        self.sweep_speed = 5.0 # deg/s
+        self.start_heading = None
+
+    def on_enter(self) -> None:
+        _, _, self.start_heading = self.robot.get_pose()
+        print(f"[WaitTask] Starting sweep from {self.start_heading:.1f} deg")
 
     def update(self):
         if not ENABLE_CAM:
@@ -231,9 +234,7 @@ class WaitTask(Task):
 
         if self._params.get("trigger") == "green_light":
             if vh.sees_traffic_light(self.robot):
-                if self.handle:
-                    self.handle.cancel()
-                    self.handle = None
+                self.robot.stop()
                 
                 detected_color = vh.find_traffic_light_color(self.robot)
                 if detected_color == "green":
@@ -243,21 +244,20 @@ class WaitTask(Task):
                     # Stay here and wait for green
                     pass
             else:
-                if self.handle is None:
-                    print(f"Scanning for traffic light (dir={self.turn_direction})")
-                    self.handle = self.robot.turn_by(
-                        delta_deg=self.turn_direction * self.rate_factor,
-                        blocking=False,
-                        tolerance_deg=2.0,
-                        timeout=None
-                    )
-
-                elif self.handle.is_done():
-                    self.rel_angle += self.turn_direction
-                    if self.rel_angle >= cp.MAX_TURN_FOR_TRAFFIC_LIGHT_DEG or self.rel_angle <= -cp.MAX_TURN_FOR_TRAFFIC_LIGHT_DEG:
-                        self.turn_direction = -self.turn_direction
-                    self.handle = None
+                _, _, current_heading = self.robot.get_pose()
                 
+                # Wrapped delta heading
+                diff = (current_heading - self.start_heading + 180) % 360 - 180
+                
+                if diff >= cp.MAX_TURN_FOR_TRAFFIC_LIGHT_DEG:
+                    self.turn_direction = -1
+                elif diff <= -cp.MAX_TURN_FOR_TRAFFIC_LIGHT_DEG:
+                    self.turn_direction = 1
+
+                self.robot.set_velocity(0.0, self.turn_direction * self.sweep_speed)
+
+    def on_exit(self) -> None:
+        self.robot.stop()
 
     def is_done(self) -> bool:
         return self._is_done
