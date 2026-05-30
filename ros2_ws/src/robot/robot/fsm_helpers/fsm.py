@@ -6,10 +6,8 @@ from robot.robot import Robot
 from robot.hardware_map import Button
 from robot.robot_fsm import RobotFSM
 
-
-# More helpers
-# TODO: change path when complete
-from robot.fsm_helpers.firmware_helpers import configure_robot, start_robot, reset_mission_pose, home_lift, home_gripper
+# TODO: Change path when complete (MED)
+import robot.fsm_helpers.firmware_helpers as fh
 from robot.fsm_helpers.task_planner import tasks
 from robot.fsm_helpers.task import build_task, Task
 
@@ -98,8 +96,8 @@ class MissionFSM(RobotFSM):
             self.task_idx = 0
             self.current_task = None
             print("\n>>> INIT - STARTING ROBOT")
-            start_robot(self.robot)
-            reset_mission_pose(self.robot)
+            fh.start_robot(self.robot)
+            fh.reset_mission_pose(self.robot)
             print(
                 "\n>>> INIT - FIRMWARE RUNNING" \
                 "\n    BTN_1 -> EXECUTE" \
@@ -107,18 +105,18 @@ class MissionFSM(RobotFSM):
             )
 
         elif state == "HOMING":
-            self.homing_lift_handle = home_lift(self.robot)
-            self.homing_gripper_handle = home_gripper(self.robot)
+            self.homing_lift_handle = fh.home_lift(self.robot)
+            self.homing_gripper_handle = fh.home_gripper(self.robot)
             print("\n>>> HOMING - BEGIN SEQUENCE")
 
         elif state == "EXECUTE":
             self.timer_start = time.monotonic() # Reset timer for the new task
 
             if self.task_idx < len(self.tasks):
-                print(f"\n>>> EXECUTE - TASK {self.task_idx}: {self.tasks[self.task_idx]}")
                 task_dict = self.tasks[self.task_idx]
                 self.current_task = build_task(self.robot, task_dict)
                 self.current_task.on_enter()
+                print(f"\n>>> EXECUTE - TASK {self.task_idx}: {self.tasks[self.task_idx]}")
             else:
                 self.trigger("to_done")
 
@@ -127,7 +125,10 @@ class MissionFSM(RobotFSM):
             if self.conn:
                 self.conn.close()
                 self.conn = None
-            print("\n>>> DONE - TASKS COMPLETE; PRESS BTN_1 TO REINITIALIZE")
+            print(
+                "\n>>> DONE - TASKS COMPLETE" \
+                "\n    BTN_1 -> INIT"
+            )
 
 
     def update(self) -> None:
@@ -162,7 +163,7 @@ class MissionFSM(RobotFSM):
 
 
 def run(robot: Robot) -> None:
-    configure_robot(robot)
+    fh.configure_robot(robot)
     fsm = MissionFSM(robot, tasks)
     fsm.on_enter("INIT")
     fsm.spin()
