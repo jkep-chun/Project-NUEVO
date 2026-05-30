@@ -369,7 +369,11 @@ def build_task(robot: Robot, task_dict: dict) -> Task:
     if state == "NAV":
         return NavTask(
             robot=robot,
-            waypoints=generate_open_rounded_path(task_dict.get("waypoints")),
+            waypoints=generate_open_rounded_path(
+                vertices=task_dict.get("waypoints"),
+                R=100.0,
+                ds=25.0
+            ),
             goal_heading=task_dict.get("goal_heading"),
             path_planner=task_dict.get("path_planner", "pp") # Defaults to "pp" over None
         )
