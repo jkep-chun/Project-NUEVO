@@ -217,47 +217,47 @@ class WaitTask(Task):
         super().__init__(robot)
         self._params = params
         self._is_done = False
-        self.turn_direction = 1
-        self.sweep_speed = 5.0 # deg/s
-        self.start_heading = None
-
-    def on_enter(self) -> None:
-        _, _, self.start_heading = self.robot.get_pose()
-        print(f"[WaitTask] Starting sweep from {self.start_heading:.1f} deg")
+        self._handle = None
 
     def update(self):
-        if not ENABLE_CAM:
-            if self.robot.was_button_pressed(hm.Button.BTN_1):
-                print("trigger - BTN_1 (debug)")
-                self._is_done = True
+        if self.robot.was_button_pressed(hm.Button.BTN_1):
+            self._is_done = True
+            print("[WaitTask] UPDATE: Completion triggered by BTN_1")
             return
 
         if self._params.get("trigger") == "green_light":
             if vh.sees_traffic_light(self.robot):
                 self.robot.stop()
+                if self._handle:
+                    self._handle.cancel()
+                    self._handle = None
                 
                 detected_color = vh.find_traffic_light_color(self.robot)
                 if detected_color == "green":
-                    print("trigger - green light detected")
                     self._is_done = True
+                    print("[WaitTask] UPDATE: Completion triggered by green light")
                 elif detected_color == "red":
                     # Stay here and wait for green
                     pass
             else:
-                _, _, current_heading = self.robot.get_pose()
-                
-                # Wrapped delta heading
-                diff = (current_heading - self.start_heading + 180) % 360 - 180
-                
-                if diff >= cp.MAX_TURN_FOR_TRAFFIC_LIGHT_DEG:
-                    self.turn_direction = -1
-                elif diff <= -cp.MAX_TURN_FOR_TRAFFIC_LIGHT_DEG:
-                    self.turn_direction = 1
+                if self._handle is None:
+                    self._handle = self.robot.turn_by(
+                        delta_deg=20.0,
+                        blocking=False,
+                        tolerance_deg=2.0,
+                        timeout=None
+                    )
+                elif self._handle.is_done():
+                    # Turn completed, but still no light. Reset handle to start another turn
+                    # on the next update.
+                    self._handle = None
 
-                self.robot.set_velocity(0.0, self.turn_direction * self.sweep_speed)
+    def on_enter(self) -> None:
+        print(f"[WaitTask] ENTER: Searching for traffic light")
 
     def on_exit(self) -> None:
         self.robot.stop()
+        print("[WaitTask] EXIT")
 
     def is_done(self) -> bool:
         return self._is_done
@@ -345,11 +345,16 @@ class IdentTask(Task):
         self.timeout_counter = 0
 
     def update(self):
-        if vh.capture_identity_person():
+        if self.robot.was_button_pressed(hm.Button.BTN_1):
+            self._is_done = True
+            print("[IdentTask] UPDATE: Completion triggered by BTN_1")
+            return
+        
+        if vh.capture_and_crop_identify_person(robot=self.robot, save_path=vh.IDENTIFY_PERSON_PATH):
             score_1 = vh.image_match_score(vh.IDENTIFY_PERSON_PATH, vh.SUSPECT_1_PATH)
             score_2 = vh.image_match_score(vh.IDENTIFY_PERSON_PATH, vh.SUSPECT_2_PATH)
             if score_1 < vh.MIN_IMAGE_MATCH_SCORE and score_2 < vh.MIN_IMAGE_MATCH_SCORE:
-                print("No confident image match found.")
+                print("[IdentTask] UPDATE: No confident image match found.")
             elif score_1 > score_2:
                 # TODO: SET INTERNAL VARIABLE
                 self._is_done = True
@@ -358,9 +363,16 @@ class IdentTask(Task):
                 self._is_done = True
         else:
             self.timeout_counter += 1
+            print(f"[IdentTask] UPDATE: Capture and identification failure {self.timeout_counter}.")
 
     def is_done(self) -> bool:
         return self._is_done
+    
+    def on_enter(self):
+        print("[IdentTask] ENTER: Analyzing target customer.")
+
+    def on_exit(self):
+        print("[IdentTask] EXIT: Customer match success.")
 
 
 def build_task(robot: Robot, task_dict: dict) -> Task:
