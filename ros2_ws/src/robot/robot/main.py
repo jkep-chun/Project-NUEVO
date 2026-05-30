@@ -21,6 +21,7 @@ class MissionFSM(RobotFSM):
         self.tasks = task_list
         self.current_task: Task = None
         self.task_idx = 0
+        self.mission_data = {}
 
         # Motion handles (mostly managed by tasks now, but kept for homing)
         self.homing_lift_handle = None
@@ -114,7 +115,7 @@ class MissionFSM(RobotFSM):
 
             if self.task_idx < len(self.tasks):
                 task_dict = self.tasks[self.task_idx]
-                self.current_task = build_task(self.robot, task_dict)
+                self.current_task = build_task(self.robot, task_dict, self.mission_data)
                 self.current_task.on_enter()
                 print(f"\n>>> EXECUTE - TASK {self.task_idx}: {self.tasks[self.task_idx]}")
             else:

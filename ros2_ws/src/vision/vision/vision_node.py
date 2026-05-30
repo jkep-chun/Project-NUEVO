@@ -203,6 +203,14 @@ class VisionNode(Node):
                 scheduler.reset()
                 continue
 
+            # Save raw frame for other tasks (e.g. IdentTask) to avoid camera contention
+            try:
+                raw_path = Path(self.get_parameter("debug_output_dir").value) / "camera_raw.jpg"
+                raw_path.parent.mkdir(parents=True, exist_ok=True)
+                cv2.imwrite(str(raw_path), frame)
+            except Exception as e:
+                self.get_logger().warn(f"Failed to save raw frame: {e}")
+
             capture_stamp = self.get_clock().now().to_msg()
             inference_start = time.monotonic()
             try:

@@ -14,8 +14,9 @@ import robot.fsm_helpers.firmware_helpers as fh
 ENABLE_CAM = True
 
 class Task:
-    def __init__(self, robot: Robot):
+    def __init__(self, robot: Robot, mission_data: dict):
         self.robot = robot
+        self.mission_data = mission_data
 
     def update(self) -> None:
         pass
@@ -31,8 +32,8 @@ class Task:
 
 
 class NavTask(Task):
-    def __init__(self, robot, waypoints, goal_heading=None, path_planner="pp"):
-        super().__init__(robot)
+    def __init__(self, robot, waypoints, mission_data, goal_heading=None, path_planner="pp"):
+        super().__init__(robot, mission_data)
         # Ensure waypoints is a list of tuples/lists
         if waypoints and not isinstance(waypoints[0], (list, tuple)):
             waypoints = [waypoints]
@@ -213,8 +214,8 @@ class NavTask(Task):
 
 
 class WaitTask(Task):
-    def __init__(self, robot, params: dict):
-        super().__init__(robot)
+    def __init__(self, robot, mission_data, params: dict):
+        super().__init__(robot, mission_data)
         self._params = params
         self._is_done = False
         self._handle = None
@@ -264,8 +265,8 @@ class WaitTask(Task):
 
 
 class ManipTask(Task):
-    def __init__(self, robot, params: dict):
-        super().__init__(robot)
+    def __init__(self, robot, mission_data, params: dict):
+        super().__init__(robot, mission_data)
         self._is_done = False
         cmd = params.get("cmd")
         if cmd == "pick":
@@ -339,10 +340,11 @@ class ManipTask(Task):
 
 
 class IdentTask(Task):
-    def __init__(self, robot):
-        super().__init__(robot)
+    def __init__(self, robot, mission_data):
+        super().__init__(robot, mission_data)
         self._is_done = False
-        self.timeout_counter = 0
+        self._last_attempt_time = 0
+        self._attempt_period = 2.0 # Wait 2s between identification attempts
 
     def update(self):
         if self.robot.was_button_pressed(hm.Button.BTN_1):
@@ -350,20 +352,29 @@ class IdentTask(Task):
             print("[IdentTask] UPDATE: Completion triggered by BTN_1")
             return
         
+        now = time.monotonic()
+        if now - self._last_attempt_time < self._attempt_period:
+            return
+        
+        self._last_attempt_time = now
+        
         if vh.capture_and_crop_identify_person(robot=self.robot, save_path=vh.IDENTIFY_PERSON_PATH):
             score_1 = vh.image_match_score(vh.IDENTIFY_PERSON_PATH, vh.SUSPECT_1_PATH)
             score_2 = vh.image_match_score(vh.IDENTIFY_PERSON_PATH, vh.SUSPECT_2_PATH)
+            print(f"[IdentTask] Match results: Suspect1={score_1}, Suspect2={score_2}")
+
             if score_1 < vh.MIN_IMAGE_MATCH_SCORE and score_2 < vh.MIN_IMAGE_MATCH_SCORE:
-                print("[IdentTask] UPDATE: No confident image match found.")
+                print("[IdentTask] UPDATE: No confident image match found. Will retry...")
             elif score_1 > score_2:
-                # TODO: SET INTERNAL VARIABLE
+                self.mission_data["matched_customer"] = 1
                 self._is_done = True
+                print("[IdentTask] UPDATE: Matched to customer 1.")
             elif score_2 > score_1:
-                # TODO: SET INTERNAL VARIABLE
+                self.mission_data["matched_customer"] = 2
                 self._is_done = True
+                print("[IdentTask] UPDATE: Matched to customer 2.")
         else:
-            self.timeout_counter += 1
-            print(f"[IdentTask] UPDATE: Capture and identification failure {self.timeout_counter}.")
+            print(f"[IdentTask] UPDATE: Capture and identification failure. Will retry...")
 
     def is_done(self) -> bool:
         return self._is_done
@@ -372,23 +383,24 @@ class IdentTask(Task):
         print("[IdentTask] ENTER: Analyzing target customer.")
 
     def on_exit(self):
-        print("[IdentTask] EXIT: Customer match success.")
+        print("[IdentTask] EXIT: Customer match complete.")
 
 
-def build_task(robot: Robot, task_dict: dict) -> Task:
+def build_task(robot: Robot, task_dict: dict, mission_data: dict) -> Task:
     state = task_dict.get("state")
     if state == "NAV":
         return NavTask(
             robot=robot,
             waypoints=task_dict.get("waypoints"),
+            mission_data=mission_data,
             goal_heading=task_dict.get("goal_heading"),
             path_planner=task_dict.get("path_planner", "pp") # Defaults to "pp" over None
         )
     elif state == "WAIT":
-        return WaitTask(robot, task_dict)
+        return WaitTask(robot, mission_data, task_dict)
     elif state == "MANIP":
-        return ManipTask(robot, task_dict)
+        return ManipTask(robot, mission_data, task_dict)
     elif state == "IDENT":
-        return IdentTask(robot)
+        return IdentTask(robot, mission_data)
     else:
-        return Task(robot)
+        return Task(robot, mission_data)

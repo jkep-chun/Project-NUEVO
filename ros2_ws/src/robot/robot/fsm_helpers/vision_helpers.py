@@ -14,6 +14,7 @@ IMAGE_DIR = Path("runtime_output/vision")
 IDENTIFY_PERSON_PATH = IMAGE_DIR / "identify_person.jpg"
 SUSPECT_1_PATH = IMAGE_DIR / "suspect_1.jpg"
 SUSPECT_2_PATH = IMAGE_DIR / "suspect_2.jpg"
+CAMERA_RAW_PATH = IMAGE_DIR / "camera_raw.jpg"
 
 CAMERA_INDEX = 10
 MIN_IMAGE_MATCH_SCORE = 20
@@ -74,20 +75,16 @@ def sees_person(robot: Robot) -> bool:
     )
 
 def capture_photo(save_path: Path, camera_index: int = CAMERA_INDEX) -> bool:
-    """Capture one frame from the camera and save it."""
+    """Capture one frame from the camera (via camera_raw.jpg) and save it."""
     IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
-    cap = cv2.VideoCapture(camera_index, cv2.CAP_V4L2)
-    
-    if not cap.isOpened():
-        print("ERROR: Could not open camera.")
+    if not CAMERA_RAW_PATH.exists():
+        print(f"ERROR: {CAMERA_RAW_PATH} does not exist. Is vision_node running?")
         return False
 
-    ret, frame = cap.read()
-    cap.release()
-
-    if not ret or frame is None:
-        print("ERROR: Could not read camera frame.")
+    frame = cv2.imread(str(CAMERA_RAW_PATH))
+    if frame is None:
+        print(f"ERROR: Could not read {CAMERA_RAW_PATH}")
         return False
 
     success = cv2.imwrite(str(save_path), frame)
@@ -115,7 +112,7 @@ def capture_suspect_2() -> bool:
 
 def capture_and_crop_identify_person(robot: Robot, save_path: Path) -> bool:
     """
-    Capture a photo, find the largest person, and save the cropped image.
+    Capture a photo from camera_raw.jpg, find the largest person, and save the cropped image.
     
     Args:
         robot: The Robot instance to get detections from.
@@ -170,16 +167,13 @@ def capture_and_crop_identify_person(robot: Robot, save_path: Path) -> bool:
 
     IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
-    cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_V4L2)
-    if not cap.isOpened():
-        print("ERROR: Could not open camera.")
+    if not CAMERA_RAW_PATH.exists():
+        print(f"ERROR: {CAMERA_RAW_PATH} does not exist. Is vision_node running?")
         return False
 
-    ret, frame = cap.read()
-    cap.release()
-
-    if not ret or frame is None:
-        print("ERROR: Could not read camera frame.")
+    frame = cv2.imread(str(CAMERA_RAW_PATH))
+    if frame is None:
+        print(f"ERROR: Could not read {CAMERA_RAW_PATH}")
         return False
 
     # Crop the frame based on the bounding box
