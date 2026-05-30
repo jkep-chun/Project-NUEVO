@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import time
 import os
+import numpy as np
 
 from robot.fsm_helpers.path_helpers import generate_open_rounded_path
 
@@ -54,10 +55,12 @@ class Task:
 class NavTask(Task):
     def __init__(self, robot, waypoints, goal_heading=None, path_planner="pp"):
         super().__init__(robot)
-        # Ensure waypoints is a list of tuples/lists
-        if waypoints and not isinstance(waypoints[0], (list, tuple)):
-            waypoints = [waypoints]
-        self.waypoints = waypoints
+        # Ensure waypoints is a list of tuples
+        if waypoints is not None:
+            self.waypoints = [tuple(wp) for wp in np.atleast_2d(waypoints)]
+        else:
+            self.waypoints = []
+        
         self.goal_heading = goal_heading
         self.path_planner = path_planner
 
