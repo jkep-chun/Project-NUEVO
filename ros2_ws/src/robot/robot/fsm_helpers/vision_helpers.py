@@ -3,10 +3,10 @@ import cv2
 
 from robot.robot import Robot
 
-VISION_STALE_SEC = 0.5  # TODO: Tune
-MIN_TRAFFIC_LIGHT_CONFIDENCE = 0.50
-MIN_STOP_SIGN_CONFIDENCE = 0.50
-MIN_PERSON_CONFIDENCE = 0.50
+VISION_STALE_SEC = 0.5              # TODO: Tune (LOW)
+MIN_TRAFFIC_LIGHT_CONFIDENCE = 0.25 # TODO: Verify
+MIN_STOP_SIGN_CONFIDENCE = 0.70     # TODO: Verify
+MIN_PERSON_CONFIDENCE = 0.50        # TODO: Tune (HIGH)
 
 IMAGE_DIR = Path("runtime_output/vision")
 IDENTIFY_PERSON_PATH = IMAGE_DIR / "identify_person.jpg"
