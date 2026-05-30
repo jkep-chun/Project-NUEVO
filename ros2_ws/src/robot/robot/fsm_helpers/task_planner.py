@@ -55,7 +55,7 @@ elif MODE == "TEST_TUNE_TURN":
         }
     ]
 
-elif MODE == "TEST_NAV_FULL_WPS":
+elif MODE == "TEST_NAV_FULL_WPS_DENSE":
     tasks = [
         {"state": "NAV", "path_planner": "pp", "waypoints": [cp.WP0, cp.WP1, cp.WP2, cp.WP3, cp.WP4]},
         {"state": "NAV", "path_planner": "lapf", "waypoints": [cp.POSE_FACE]},

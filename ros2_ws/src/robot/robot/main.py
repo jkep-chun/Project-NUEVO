@@ -1,223 +1,168 @@
-"""
-manipulation.py — blocking pick sequence example
-================================================
-Demonstrates one simple manipulator sequence using:
-
-1. Servo 1 as a gripper
-2. Stepper 1 as a horizontal arm
-3. DC Motor 3 in POSITION mode as a vertical lift
-
-HOW TO RUN
-----------
-Copy this file over main.py, then restart the robot node:
-
-    cp examples/manipulation.py main.py
-    ros2 run robot robot
-
-WHAT THE ROBOT DOES
--------------------
-Press BTN_1 to run one pick sequence:
-
-  1. Raise the lift
-  2. Open the gripper
-  3. Lower the lift
-  4. Close the gripper
-  5. Raise the lift
-
-This example uses a blocking sequence on purpose, so the code is easy to read.
-During the sequence, the FSM stays inside one state until the whole sequence
-finishes.
-
-WHAT THIS TEACHES
------------------
-1. `step_home()` for stepper homing at startup
-2. `set_servo()` for gripper angle control
-3. `enable_motor(..., DCMotorMode.POSITION)` for M3 position control
-4. `set_motor_position(..., max_vel_ticks=...)` to apply a velocity limit
-5. Writing a simple blocking actuator sequence with `time.sleep(...)`
-"""
-
 from __future__ import annotations
+import time, sqlite3, os, math
+from datetime import datetime
 
-import time
-
-from robot.hardware_map import (
-    Button,
-    DCMotorMode,
-    DEFAULT_FSM_HZ,
-    LED,
-    Motor,
-    POSITION_UNIT,
-    ServoChannel,
-    StepMoveType,
-    Stepper,
-)
-from robot.robot import FirmwareState, Robot
+from robot.robot import Robot
+from robot.hardware_map import Button
+from robot.robot_fsm import RobotFSM
 
 
-# ---------------------------------------------------------------------------
-# Actuator configuration — edit these to match your build
-# ---------------------------------------------------------------------------
+# More helpers
+# TODO: change path when complete
+from robot.fsm_helpers.firmware_helpers import configure_robot, start_robot, reset_mission_pose, home_lift, home_gripper
+from robot.fsm_helpers.task_planner import tasks
+from robot.fsm_helpers.task import build_task, Task
 
-# Servo 1 — gripper jaw
-GRIPPER_SERVO = ServoChannel.CH_1
-GRIPPER_OPEN_DEG = 0.0
-GRIPPER_CLOSE_DEG = 40.0 # TODO: Switch to limit switch feedback
-GRIPPER_SETTLE_S = 1.0
+LOG_DIR = "/runtime_output/logs"
 
-# Stepper 1 — horizontal arm extension
-LIFT_STEPPER = Stepper.STEPPER_1
-LIFT_EXTEND_STEPS = -15000 # Absolute, TODO: Measure
-LIFT_LOWER_STEPS = 3000 # Relative, TODO: Measure
-LIFT_BUFFER_STEPS = -1000 # Relative, TODO: Measure
-LIFT_MAX_VELOCITY = 5000 # TODO: Verify
-LIFT_ACCELERATION = 1200 # TODO: Verify
-LIFT_HOME_VELOCITY = 1000 # TODO: Verify
-LIFT_MOVE_TIMEOUT_S = 10.0
+class MissionFSM(RobotFSM):
+    def __init__(self, robot: Robot, task_list: list[dict]):
+        super().__init__(robot, initial_state_str="INIT")
+
+        # Tasks
+        self.tasks = task_list
+        self.current_task: Task = None
+        self.task_idx = 0
+
+        # Motion handles (mostly managed by tasks now, but kept for homing)
+        self.homing_lift_handle = None
+        self.homing_gripper_handle = None
+
+        # Execution
+        self.timer_start = None
+        self.execution_print_period = 1.0
+        
+        # Transitions
+        self.add_transition("INIT", "to_execute", "EXECUTE")
+        self.add_transition("INIT", "to_homing", "HOMING")
+        self.add_transition("HOMING", "to_init", "INIT")
+        self.add_transition("EXECUTE", "next", "EXECUTE", action=self._advance_task)
+        self.add_transition("EXECUTE", "to_done", "DONE")
+        self.add_transition("EXECUTE", "error", "INIT")
+        self.add_transition("DONE", "to_init", "INIT")
+
+        # SQLITE3 LOGGING SETUP
+        self.conn = None
+        self._setup_logging()
+
+    def _setup_logging(self) -> None:
+        """Initialize sqlite3 database for logging."""
+        os.makedirs(LOG_DIR, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        db_path = os.path.join(LOG_DIR, f"fsm_log_{timestamp}.db")
+        print(f"Logging mission data to: {db_path}")
+        
+        self.conn = sqlite3.connect(db_path)
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS fsm_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp REAL,
+                state TEXT,
+                event TEXT,
+                task_idx INTEGER,
+                x REAL,
+                y REAL,
+                theta REAL
+            )
+        ''')
+        self.conn.commit()
+
+    def _log(self, event: str = "UPDATE") -> None:
+        """Log current state and telemetry to sqlite3."""
+        if self.conn is None:
+            return
+        
+        x, y, theta = self.robot.get_pose()
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            INSERT INTO fsm_log (timestamp, state, event, task_idx, x, y, theta)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (time.time(), self.get_state_str(), event, self.task_idx, x, y, theta))
+        self.conn.commit()
+
+    def _advance_task(self) -> None:
+        if self.current_task:
+            self.current_task.on_exit()
+        
+        self.task_idx += 1
+        print(f"Advancing to task {self.task_idx}...")
+        self._log(event="ADVANCE_TASK")
+
+    def on_enter(self, state: str) -> None:
+        self._log(event=f"ENTER_{state}")
+        self.robot.was_button_pressed(button_id=Button.BTN_1, consume=True)
+        self.robot.was_button_pressed(button_id=Button.BTN_2, consume=True)
+
+        if state == "INIT":
+            self.task_idx = 0
+            self.current_task = None
+            print("\n>>> INIT - STARTING ROBOT")
+            start_robot(self.robot)
+            reset_mission_pose(self.robot)
+            print(
+                "\n>>> INIT - FIRMWARE RUNNING" \
+                "\n    BTN_1 -> EXECUTE" \
+                "\n    BTN_2 -> HOMING"
+            )
+
+        elif state == "HOMING":
+            self.homing_lift_handle = home_lift(self.robot)
+            self.homing_gripper_handle = home_gripper(self.robot)
+            print("\n>>> HOMING - BEGIN SEQUENCE")
+
+        elif state == "EXECUTE":
+            self.timer_start = time.monotonic() # Reset timer for the new task
+
+            if self.task_idx < len(self.tasks):
+                print(f"\n>>> EXECUTE - TASK {self.task_idx}: {self.tasks[self.task_idx]}")
+                task_dict = self.tasks[self.task_idx]
+                self.current_task = build_task(self.robot, task_dict)
+                self.current_task.on_enter()
+            else:
+                self.trigger("to_done")
+
+        elif state == "DONE":
+            self.robot.shutdown()
+            if self.conn:
+                self.conn.close()
+                self.conn = None
+            print("\n>>> DONE - TASKS COMPLETE; PRESS BTN_1 TO REINITIALIZE")
 
 
-def configure_robot(robot: Robot) -> None:
-    robot.set_unit(POSITION_UNIT)
+    def update(self) -> None:
+        """Called at DEFAULT_FSM_HZ, non-blocking."""
+        state_str = self.get_state_str()
+        
+        if state_str == "INIT":
+            if self.robot.was_button_pressed(Button.BTN_1):
+                self.trigger("to_execute")
+            elif self.robot.was_button_pressed(Button.BTN_2):
+                self.trigger("to_homing")
 
+        elif state_str == "HOMING":
+             # Separate from if statement logic to ensure each .is_done is called
+            lift_done = self.homing_lift_handle.is_done()
+            grip_done = self.homing_gripper_handle.is_done()
+            if lift_done and grip_done:
+                self.homing_lift_handle = None
+                self.homing_gripper_handle = None
+                self.trigger("to_init")
+        
+        elif state_str == "EXECUTE":
+            if self.current_task:
+                self.current_task.update()
+                if self.current_task.is_done():
+                    self.trigger("next")
 
-def start_robot(robot: Robot) -> None:
-    current = robot.get_state()
-    if current in (FirmwareState.ESTOP, FirmwareState.ERROR):
-        robot.reset_estop()
-    robot.set_state(FirmwareState.RUNNING)
+        elif state_str == "DONE":
+            if self.robot.was_button_pressed(Button.BTN_1):
+                self._setup_logging()
+                self.trigger("to_init")
 
-
-def show_idle_leds(robot: Robot) -> None:
-    robot.set_led(LED.ORANGE, 200)
-    robot.set_led(LED.GREEN, 0)
-
-
-def show_running_leds(robot: Robot) -> None:
-    robot.set_led(LED.ORANGE, 0)
-    robot.set_led(LED.GREEN, 200)
-
-
-def home_lift(robot: Robot) -> bool:
-    """Home the lift stepper against its limit switch."""
-    print("[FSM] HOMING — press BTN_3 to trigger the shared LIM1 input for stepper 1")
-    robot.step_enable(LIFT_STEPPER)
-    ok = robot.step_home(
-        LIFT_STEPPER,
-        direction=1, # TODO: Verify
-        home_velocity=LIFT_HOME_VELOCITY,
-        backoff_steps=50,
-        blocking=True,
-        timeout=15.0,
-    )
-    if not ok:
-        print("[warn] arm homing timed out — check LIM1 or use BTN_3 to simulate it")
-        robot.step_disable(LIFT_STEPPER)
-        return False
-    robot.step_disable(LIFT_STEPPER)
-    return True
-
-def run_pick_sequence(robot: Robot) -> bool:
-    """Run one blocking pick sequence from top to bottom."""
-    robot.step_set_config(
-        LIFT_STEPPER,
-        max_velocity=LIFT_MAX_VELOCITY,
-        acceleration=LIFT_ACCELERATION,
-    )
-    robot.enable_servo(GRIPPER_SERVO)
-    robot.step_enable(LIFT_STEPPER)
-
-
-    print("[SEQ] Raise lift")
-    if not robot.step_move(
-        LIFT_STEPPER,
-        steps=LIFT_EXTEND_STEPS,
-        move_type=StepMoveType.ABSOLUTE,
-        blocking=True,
-        timeout=LIFT_MOVE_TIMEOUT_S,
-    ):
-        print("[warn] arm failed to extend — check stepper enable or home limit wiring")
-        robot.step_disable(LIFT_STEPPER)
-        robot.disable_servo(GRIPPER_SERVO)
-        return False
-
-    print("[SEQ] open gripper")
-    robot.set_servo(GRIPPER_SERVO, GRIPPER_OPEN_DEG)
-    time.sleep(GRIPPER_SETTLE_S)
-
-    print("[SEQ] Lower lift") # TODO: Change vales
-    if not robot.step_move(
-        LIFT_STEPPER,
-        steps=LIFT_LOWER_STEPS,
-        move_type=StepMoveType.RELATIVE,
-        blocking=True,
-        timeout=LIFT_MOVE_TIMEOUT_S,
-    ):
-        print("[warn] arm failed to extend — check stepper enable or home limit wiring")
-        robot.step_disable(LIFT_STEPPER)
-        robot.disable_servo(GRIPPER_SERVO)
-        return False
-
-    print("[SEQ] close gripper")
-    robot.set_servo(GRIPPER_SERVO, GRIPPER_CLOSE_DEG)
-    time.sleep(GRIPPER_SETTLE_S)
-    
-    print("[SEQ] Raise lift")
-    if not robot.step_move(
-        LIFT_STEPPER,
-        steps=LIFT_BUFFER_STEPS,
-        move_type=StepMoveType.RELATIVE,
-        blocking=True,
-        timeout=LIFT_MOVE_TIMEOUT_S,
-    ):
-        print("[warn] arm failed to extend — check stepper enable or home limit wiring")
-        robot.step_disable(LIFT_STEPPER)
-        robot.disable_servo(GRIPPER_SERVO)
-        return False
-
-    robot.step_disable(LIFT_STEPPER)
-    robot.disable_servo(GRIPPER_SERVO)
 
 def run(robot: Robot) -> None:
     configure_robot(robot)
-
-    state = "INIT"
-
-    period = 1.0 / float(DEFAULT_FSM_HZ)
-    next_tick = time.monotonic()
-
-    while True:
-        if state == "INIT":
-            start_robot(robot)
-            home_lift(robot)
-            show_idle_leds(robot)
-            print("[FSM] IDLE — press BTN_1 to run the pick sequence")
-            print(
-                f"[CFG] gripper open={GRIPPER_OPEN_DEG:.0f}° close={GRIPPER_CLOSE_DEG:.0f}°"
-            )
-            print(
-                f"[CFG] lift raised={LIFT_EXTEND_STEPS} steps "
-                f"home_vel={LIFT_HOME_VELOCITY} steps/s"
-            )
-            state = "IDLE"
-
-        elif state == "IDLE":
-            if robot.was_button_pressed(Button.BTN_1):
-                show_running_leds(robot)
-                print("[FSM] RUN_SEQUENCE")
-                state = "RUN_SEQUENCE"
-
-        elif state == "RUN_SEQUENCE":
-            ok = run_pick_sequence(robot)
-            show_idle_leds(robot)
-            if ok:
-                print("[FSM] IDLE — sequence complete")
-            else:
-                print("[FSM] IDLE — sequence stopped due to actuator timeout")
-            state = "IDLE"
-
-        next_tick += period
-        sleep_s = next_tick - time.monotonic()
-        if sleep_s > 0.0:
-            time.sleep(sleep_s)
-        else:
-            next_tick = time.monotonic()
+    fsm = MissionFSM(robot, tasks)
+    fsm.on_enter("INIT")
+    fsm.spin()

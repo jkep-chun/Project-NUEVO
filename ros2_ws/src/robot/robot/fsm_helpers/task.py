@@ -4,6 +4,8 @@ import math
 import time
 import os
 
+from robot.fsm_helpers.path_helpers import generate_open_rounded_path
+
 from robot.robot import Robot
 from robot.hardware_map import (
     Button, 
@@ -367,7 +369,7 @@ def build_task(robot: Robot, task_dict: dict) -> Task:
     if state == "NAV":
         return NavTask(
             robot=robot,
-            waypoints=task_dict.get("waypoints"),
+            waypoints=generate_open_rounded_path(task_dict.get("waypoints")),
             goal_heading=task_dict.get("goal_heading"),
             path_planner=task_dict.get("path_planner", "pp") # Defaults to "pp" over None
         )
