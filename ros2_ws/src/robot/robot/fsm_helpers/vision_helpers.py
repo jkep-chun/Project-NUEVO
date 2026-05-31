@@ -10,7 +10,11 @@ MIN_TRAFFIC_LIGHT_CONFIDENCE = 0.25 # TODO: Verify
 MIN_STOP_SIGN_CONFIDENCE = 0.70     # TODO: Verify
 MIN_PERSON_CONFIDENCE = 0.50        # TODO: Tune (HIGH)
 
-IMAGE_DIR = Path("runtime_output/vision")
+# Use absolute path inside Docker, fallback to relative for local development
+IMAGE_DIR = Path("/runtime_output/vision")
+if not IMAGE_DIR.exists():
+    IMAGE_DIR = Path("ros2_ws/runtime_output/vision")
+
 IDENTIFY_PERSON_PATH = IMAGE_DIR / "identify_person.jpg"
 SUSPECT_1_PATH = IMAGE_DIR / "suspect_1.jpg"
 SUSPECT_2_PATH = IMAGE_DIR / "suspect_2.jpg"
