@@ -43,6 +43,7 @@ from robot.robot import FirmwareState, Robot
 
 ENABLE_LIDAR = True
 ENABLE_GPS = False
+ENABLE_VISION = True
 
 def configure_robot(robot: Robot) -> None:
     robot.set_unit(POSITION_UNIT)
@@ -76,6 +77,10 @@ def configure_robot(robot: Robot) -> None:
         robot.set_tracked_tag_id(TAG_ID)
         robot.set_tag_body_offset(TAG_BODY_OFFSET_X_MM, TAG_BODY_OFFSET_Y_MM)
         print(f"[sensor] GPS enabled — tracking ArUco tag {TAG_ID}")
+
+    if ENABLE_VISION:
+        robot.enable_vision()
+        print("[sensor] vision enabled — subscribing to /vision/detections")
 
 
 def start_robot(robot: Robot) -> None:
