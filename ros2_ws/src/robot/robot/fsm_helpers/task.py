@@ -219,6 +219,8 @@ class WaitTask(Task):
         self._params = params
         self._is_done = False
         self._handle = None
+        self._pause_period = 2.0
+        self._pause_start = None
 
     def update(self):
         if self.robot.was_button_pressed(hm.Button.BTN_1):
@@ -227,6 +229,7 @@ class WaitTask(Task):
             return
 
         if self._params.get("trigger") == "green_light":
+            # 1. Check for traffic light first (Priority)
             if vh.sees_traffic_light(self.robot):
                 self.robot.stop()
                 if self._handle:
@@ -237,23 +240,30 @@ class WaitTask(Task):
                 if detected_color == "green":
                     self._is_done = True
                     print("[WaitTask] UPDATE: Completion triggered by green light")
-                elif detected_color == "red":
-                    # Stay here and wait for green
-                    pass
+                return # Don't turn if we see a light (even if it's red)
+
+            # 2. Handle the turn/pause search cycle
+            now = time.monotonic()
+            
+            if self._handle is not None:
+                # We are currently in the middle of a turn
+                if self._handle.is_done():
+                    self._handle = None
+                    self._pause_start = now
+                    print("[WaitTask] Turn complete, pausing for vision...")
             else:
-                if self._handle is None:
+                # We are currently in a pause period
+                if now - self._pause_start >= self._pause_period:
+                    print("[WaitTask] Pause complete, rotating search...")
                     self._handle = self.robot.turn_by(
                         delta_deg=20.0,
                         blocking=False,
                         tolerance_deg=2.0,
                         timeout=None
                     )
-                elif self._handle.is_done():
-                    # Turn completed, but still no light. Reset handle to start another turn
-                    # on the next update.
-                    self._handle = None
 
     def on_enter(self) -> None:
+        self._pause_start = time.monotonic()
         print(f"[WaitTask] ENTER: Searching for traffic light")
 
     def on_exit(self) -> None:
