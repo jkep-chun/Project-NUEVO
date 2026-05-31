@@ -223,6 +223,7 @@ class WaitTask(Task):
         self._time_pause_start = None
         self._time_detection_period = 2.0
         self._time_last_detection = 0.0
+        self._traffic_light_detected = False
 
     def update(self):
         now = time.monotonic()
@@ -235,6 +236,7 @@ class WaitTask(Task):
         if self._params.get("trigger") == "green_light":
             # 1. Check for traffic light first (Priority)
             if vh.sees_traffic_light(self.robot):
+                self._traffic_light_detected = True
                 if now - self._time_last_detection >= self._time_detection_period:
                     self._time_last_detection = now
                     print("[WaitTask] Traffic light detected")
@@ -256,7 +258,7 @@ class WaitTask(Task):
                     self._handle = None
                     self._time_pause_start = now
                     print("[WaitTask] Turn complete, pausing for vision...")
-            else:
+            elif not self._traffic_light_detected:
                 # We are currently in a pause period
                 if now - self._time_pause_start >= self._time_pause_period:
                     print("[WaitTask] Pause complete, rotating search...")
