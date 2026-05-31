@@ -219,18 +219,25 @@ class WaitTask(Task):
         self._params = params
         self._is_done = False
         self._handle = None
-        self._pause_period = 2.0
-        self._pause_start = None
+        self._time_pause_period = 2.0
+        self._time_pause_start = None
+        self._time_detection_period = 2.0
+        self._time_last_detection = 0.0
 
     def update(self):
+        now = time.monotonic()
+
         if self.robot.was_button_pressed(hm.Button.BTN_1):
             self._is_done = True
-            print("[WaitTask] UPDATE: Completion triggered by BTN_1")
+            print("[WaitTask] Completion triggered by BTN_1")
             return
 
         if self._params.get("trigger") == "green_light":
             # 1. Check for traffic light first (Priority)
             if vh.sees_traffic_light(self.robot):
+                if now - self._time_last_detection >= self._time_detection_period:
+                    self._time_last_detection = now
+                    print("[WaitTask] Traffic light detected")
                 self.robot.stop()
                 if self._handle:
                     self._handle.cancel()
@@ -239,21 +246,19 @@ class WaitTask(Task):
                 detected_color = vh.find_traffic_light_color(self.robot)
                 if detected_color == "green":
                     self._is_done = True
-                    print("[WaitTask] UPDATE: Completion triggered by green light")
+                    print("[WaitTask] Completion triggered by green light")
                 return # Don't turn if we see a light (even if it's red)
 
             # 2. Handle the turn/pause search cycle
-            now = time.monotonic()
-            
             if self._handle is not None:
                 # We are currently in the middle of a turn
                 if self._handle.is_done():
                     self._handle = None
-                    self._pause_start = now
+                    self._time_pause_start = now
                     print("[WaitTask] Turn complete, pausing for vision...")
             else:
                 # We are currently in a pause period
-                if now - self._pause_start >= self._pause_period:
+                if now - self._time_pause_start >= self._time_pause_period:
                     print("[WaitTask] Pause complete, rotating search...")
                     self._handle = self.robot.turn_by(
                         delta_deg=20.0,
@@ -263,12 +268,12 @@ class WaitTask(Task):
                     )
 
     def on_enter(self) -> None:
-        self._pause_start = time.monotonic()
-        print(f"[WaitTask] ENTER: Searching for traffic light")
+        self._time_pause_start = time.monotonic()
+        print(f"[WaitTask] Searching for traffic light")
 
     def on_exit(self) -> None:
         self.robot.stop()
-        print("[WaitTask] EXIT")
+        print(f"[WaitTask] EXIT")
 
     def is_done(self) -> bool:
         return self._is_done
