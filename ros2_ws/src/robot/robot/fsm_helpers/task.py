@@ -198,7 +198,7 @@ class NavTask(Task):
         if self.waypoints is not None and len(self.waypoints) > 0:
             wx = [wp[0] for wp in self.waypoints]
             wy = [wp[1] for wp in self.waypoints]
-            plt.plot(wx, wy, color='green', linestyle='--', alpha=0.5, label='Waypoints')
+            plt.scatter(wx, wy, color='green', marker='o', s=40, label='Waypoint', zorder=5)
             
             if len(wx) > 0:
                 plt.text(wx[0], wy[0], ' Start', color='green', verticalalignment='bottom', fontsize=9)
@@ -219,23 +219,6 @@ class NavTask(Task):
         plt.title(f'Robot Navigation Trajectory ({self.path_planner.upper()})')
         plt.legend()
         plt.axis('equal')
-        
-        # Configure grid lines at SQ intervals, offset so (0,0) is centered in a square
-        import matplotlib.ticker as ticker
-        ax = plt.gca()
-        offset = cp.SQ / 2.0
-        
-        # Calculate tick locations spanning the current view
-        xmin, xmax = ax.get_xlim()
-        ymin, ymax = ax.get_ylim()
-        
-        xticks = np.arange(math.floor((xmin - offset) / cp.SQ) * cp.SQ + offset, xmax + cp.SQ, cp.SQ)
-        yticks = np.arange(math.floor((ymin - offset) / cp.SQ) * cp.SQ + offset, ymax + cp.SQ, cp.SQ)
-        
-        ax.xaxis.set_major_locator(ticker.FixedLocator(xticks))
-        ax.yaxis.set_major_locator(ticker.FixedLocator(yticks))
-        
-        plt.grid(True, linestyle=':', alpha=0.6)
         
         # Determine save directory (prioritize Docker /runtime_output)
         save_dir = "/runtime_output/plots"
