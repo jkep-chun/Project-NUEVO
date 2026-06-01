@@ -5,14 +5,26 @@ User-defined mission tasks. Set MODE below
 from robot.fsm_helpers import course_parameters as cp
 from robot.fsm_helpers.course_parameters import SQ
 
-MODE = "ALL_WAYPOINTS"
+MODE = "TUNE_LAPF"
 
 # =============================================================================
 # Navigation
 # =============================================================================
 
 if MODE == "TUNE_LAPF":
-    tasks = [{"state": "NAV", "waypoints": (0, 3*610.0, 0)}]
+    tasks = [{
+        "state": "NAV",
+        "path_planner": "lapf",
+        "waypoints": [(0*SQ, 5*SQ)],
+        "goal_heading": 0.0
+    },
+    # {
+    #     "state": "NAV",
+    #     "path_planner": "pp",
+    #     "waypoints": [(1*SQ, 5*SQ)],
+    #     "goal_heading": 0.0
+    # },
+    ]
 
 elif MODE == "TUNE_TURN":
     tasks = [{

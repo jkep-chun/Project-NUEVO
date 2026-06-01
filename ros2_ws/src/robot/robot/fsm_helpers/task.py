@@ -120,12 +120,12 @@ class NavTask(Task):
                     print(f"Driving (LAPF) toward: ({tx:.2f},{ty:.2f})")
                     self.handle = self.robot.lapf_to_goal(
                         x=tx, y=ty,
-                        velocity=bp.VELOCITY_MM_S,
-                        tolerance=bp.TOLERANCE_MM,
+                        velocity=bp.VELOCITY_MM_S*0.8,
+                        tolerance=bp.TOLERANCE_MM_LAPF,
                         leash_length_mm=50,
-                        repulsion_range_mm=350.0,
-                        target_speed_mm_s=200.0,
-                        repulsion_gain=550.0,
+                        repulsion_range_mm=150.0, # 350.0
+                        target_speed_mm_s=bp.VELOCITY_MM_S,
+                        repulsion_gain=150, # 550.0,
                         attraction_gain=1.0,
                         force_ema_alpha=0.35,
                         inflation_margin_mm=150.0,
