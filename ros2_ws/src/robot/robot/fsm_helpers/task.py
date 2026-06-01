@@ -52,6 +52,7 @@ class NavTask(Task):
         self.wp_lapf_idx = 0
         self.handle = None
         self.start_heading = None
+        self._start_traj_idx = len(self.robot._fused_traj)
 
         self.stage_idx = 0
         self.stage_sequence = []
@@ -69,10 +70,6 @@ class NavTask(Task):
                         self.start_heading = math.degrees(math.atan2(dy, dx))
                         self.stage_sequence.insert(0, bp.NavStage.START_HEADING)
                         break
-        
-        # Add goal heading if provided
-        if self.goal_heading is not None:
-            self.stage_sequence.append(bp.NavStage.HEADING)
         
         # Add goal heading if provided
         if self.goal_heading is not None:
@@ -171,8 +168,8 @@ class NavTask(Task):
             return
 
         # Trajectory data from Robot (mm)
-        odom = list(self.robot._odom_traj)
-        fused = list(self.robot._fused_traj)
+        odom = list(self.robot._odom_traj)[self._start_traj_idx:]
+        fused = list(self.robot._fused_traj)[self._start_traj_idx:]
         
         if not odom and not fused:
             return

@@ -216,6 +216,8 @@ class NavigationMixin:
             self._pos_fusion.reset()
             if hasattr(self._orientation_fusion, "reset"):
                 self._orientation_fusion.reset()
+            self._odom_traj.clear()
+            self._fused_traj.clear()
         msg = SysOdomReset()
         msg.flags = 0
         self._odom_pub.publish(msg)
