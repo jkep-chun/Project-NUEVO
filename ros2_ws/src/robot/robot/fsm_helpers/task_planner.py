@@ -5,7 +5,7 @@ User-defined mission tasks. Set MODE below
 from robot.fsm_helpers import course_parameters as cp
 from robot.fsm_helpers.course_parameters import SQ
 
-MODE = "TUNE_TURN"
+MODE = "ALL_WAYPOINTS"
 
 # =============================================================================
 # Navigation
@@ -76,9 +76,9 @@ elif MODE == "SQUARE2":
 
 elif MODE == "ALL_WAYPOINTS":
     tasks = [
-        {"state": "NAV", "path_planner": "pp", "waypoints": [cp.WP0, cp.WP1, cp.WP2, cp.WP3, cp.WP4]},
+        {"state": "NAV", "path_planner": "pp", "waypoints": [cp.WP1, cp.WP2, cp.WP3, cp.WP4]},
         {"state": "NAV", "path_planner": "lapf", "waypoints": [cp.POSE_FACE]},
-        {"state": "NAV", "path_planner": "pp", "waypoints": [cp.POSE_FACE, cp.WP5, cp.WP6]}
+        {"state": "NAV", "path_planner": "pp", "waypoints": [cp.WP5, cp.WP6]}
     ]
 
 # =============================================================================
