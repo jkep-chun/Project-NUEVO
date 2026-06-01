@@ -219,6 +219,7 @@ class NavTask(Task):
         plt.title(f'Robot Navigation Trajectory ({self.path_planner.upper()})')
         plt.legend()
         plt.axis('equal')
+        plt.grid(True)
         
         # Determine save directory (prioritize Docker /runtime_output)
         save_dir = "/runtime_output/plots"
