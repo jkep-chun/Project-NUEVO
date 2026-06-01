@@ -7,26 +7,34 @@ from robot.fsm_helpers.course_parameters import SQ
 
 start_pose = (0, 0, 90)
 
-MODE = "TUNE_LAPF"
+MODE = "RANDOM"
 
-# =============================================================================
-# Navigation
-# =============================================================================
-
-if MODE == "TUNE_LAPF":
+if MODE == "RANDOM":
     tasks = [{
         "state": "NAV",
         "path_planner": "lapf",
         "waypoints": [(0*SQ, 5*SQ)],
         "goal_heading": 0.0
     },
-    # {
-    #     "state": "NAV",
-    #     "path_planner": "pp",
-    #     "waypoints": [(1*SQ, 5*SQ)],
-    #     "goal_heading": 0.0
-    # },
+    {
+        "state": "NAV",
+        "path_planner": "pp",
+        "waypoints": [(1*SQ, 5*SQ)],
+        "goal_heading": 0.0
+    },
+    {
+        "state": "IDENT",
+    },
+    {
+        "state": "NAV",
+        "path_planner": "pp",
+        "goal_heading": 0.0
+    },
     ]
+
+# =============================================================================
+# Navigation
+# =============================================================================
 
 elif MODE == "TUNE_TURN":
     tasks = [{

@@ -45,6 +45,7 @@ class NavTask(Task):
         
         self.goal_heading = goal_heading
         self.path_planner = path_planner
+        self.mission_data = mission_data
 
         self._is_done = False
         self.wp_lapf_idx = 0
@@ -63,7 +64,14 @@ class NavTask(Task):
                 dy = self.waypoints[0][1] - y
                 if math.hypot(dx, dy) > bp.TOLERANCE_MM:
                     self.start_heading = math.degrees(math.atan2(dy, dx))
-                    self.stage_sequence.insert(0, bp.NavStage.START_HEADING)   
+                    self.stage_sequence.insert(0, bp.NavStage.START_HEADING)
+        
+        if self.mission_data.get("matched_customer") == 1:
+            self.waypoints.append(cp.WP_CUSTOMER_1)
+            self.goal_heading = 0 # TODO: (LOW)
+        elif self.mission_data.get("matched_customer") == 2:
+            self.waypoints.append(cp.WP_CUSTOMER_2)
+            self.goal_heading = 0 # TODO: (LOW)
 
         # Add goal heading if provided
         if self.goal_heading is not None:
