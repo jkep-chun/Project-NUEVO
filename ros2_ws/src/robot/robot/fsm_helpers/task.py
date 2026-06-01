@@ -33,6 +33,10 @@ class Task:
     def on_exit(self) -> None:
         pass
 
+    def cancel(self) -> None:
+        """Abort the task and stop relevant hardware."""
+        self._robot.stop()
+
 
 class NavTask(Task):
     def __init__(self, robot, mission_data, waypoints, goal_heading=None, path_planner="pp", delivery_segment=False):
@@ -161,6 +165,12 @@ class NavTask(Task):
     def is_done(self) -> bool:
         return self._is_done
 
+    def cancel(self) -> None:
+        if self._handle:
+            self._handle.cancel()
+            self._handle = None
+        super().cancel()
+
     def on_exit(self) -> None:
         """
         Save a plot of the robot's trajectory and waypoints to a .jpg file
@@ -253,11 +263,6 @@ class WaitTask(Task):
     def update(self):
         now = time.monotonic()
 
-        if self._robot.was_button_pressed(hm.Button.BTN_1):
-            self._is_done = True
-            print("[WaitTask] Completion triggered by BTN_1")
-            return
-
         if self._params.get("trigger") == "green_light":
             # 1. Check for traffic light first (Priority)
             if vh.sees_traffic_light(self._robot):
@@ -301,6 +306,12 @@ class WaitTask(Task):
     def on_exit(self) -> None:
         self._robot.stop()
         print(f"[WaitTask] EXIT")
+
+    def cancel(self) -> None:
+        if self._handle:
+            self._handle.cancel()
+            self._handle = None
+        super().cancel()
 
     def is_done(self) -> bool:
         return self._is_done
@@ -393,6 +404,12 @@ class ManipTask(Task):
             else:
                 self._is_done = True
 
+    def cancel(self) -> None:
+        if self._handle:
+            self._handle.cancel()
+            self._handle = None
+        super().cancel()
+
     def is_done(self) -> bool:
         return self._is_done
 
@@ -405,11 +422,6 @@ class IdentTask(Task):
         self._attempt_period = 2.0 # Wait 2s between identification attempts
 
     def update(self):
-        if self._robot.was_button_pressed(hm.Button.BTN_1):
-            self._is_done = True
-            print("[IdentTask] UPDATE: Completion triggered by BTN_1")
-            return
-        
         now = time.monotonic()
         if now - self._last_attempt_time < self._attempt_period:
             return
@@ -435,6 +447,9 @@ class IdentTask(Task):
                 print("[IdentTask] UPDATE: Matched to customer 2.")
         else:
             print(f"[IdentTask] UPDATE: Capture and identification failure. Will retry...")
+
+    def cancel(self) -> None:
+        super().cancel()
 
     def is_done(self) -> bool:
         return self._is_done
