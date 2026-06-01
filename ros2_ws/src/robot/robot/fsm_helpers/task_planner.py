@@ -19,6 +19,12 @@ if MODE == "RANDOM":
     {
         "state": "NAV",
         "path_planner": "lapf",
+        "waypoints": [cp.WP4B],
+        "goal_heading": 0.0
+    },
+    {
+        "state": "NAV",
+        "path_planner": "pp",
         "waypoints": [cp.WP_CUSTOMER_ID],
         "goal_heading": 0.0
     },
