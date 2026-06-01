@@ -46,14 +46,19 @@ class NavTask(Task):
         self.goal_heading = goal_heading
         self.path_planner = path_planner
         self.mission_data = mission_data
+        self.delivery_segment = False
 
         # Robustness: Inject customer data BEFORE determining stage sequence
-        if self.mission_data.get("matched_customer") == 1:
-            self.waypoints.append(cp.WP_CUSTOMER_1)
-            self.goal_heading = 0 # TODO: (LOW)
-        elif self.mission_data.get("matched_customer") == 2:
-            self.waypoints.append(cp.WP_CUSTOMER_2)
-            self.goal_heading = 0 # TODO: (LOW)
+        if not self.mission_data.get("delivery_status"):
+            matched_customer = self.mission_data.get("matched_customer")
+            if matched_customer == 1:
+                self.waypoints.append(cp.WP_CUSTOMER_1)
+                self.goal_heading = 0
+                self.delivery_segment = True
+            elif matched_customer == 2:
+                self.waypoints.append(cp.WP_CUSTOMER_2)
+                self.goal_heading = 0
+                self.delivery_segment = True
 
         self._is_done = False
         self.wp_lapf_idx = 0
@@ -97,6 +102,8 @@ class NavTask(Task):
                 if self.stage_idx < len(self.stage_sequence):
                     self.stage = self.stage_sequence[self.stage_idx]
                 else:
+                    if self.delivery_segment:
+                        self.mission_data["delivery_status"] = True
                     self._is_done = True
                     return
 
@@ -398,10 +405,12 @@ class IdentTask(Task):
                 print("[IdentTask] UPDATE: No confident image match found. Will retry...")
             elif score_1 > score_2:
                 self.mission_data["matched_customer"] = 1
+                self.mission_data["delivery_status"] = False
                 self._is_done = True
                 print("[IdentTask] UPDATE: Matched to customer 1.")
             elif score_2 > score_1:
                 self.mission_data["matched_customer"] = 2
+                self.mission_data["delivery_status"] = False
                 self._is_done = True
                 print("[IdentTask] UPDATE: Matched to customer 2.")
         else:

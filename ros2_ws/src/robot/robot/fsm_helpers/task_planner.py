@@ -12,14 +12,14 @@ MODE = "RANDOM"
 if MODE == "RANDOM":
     tasks = [{
         "state": "NAV",
-        "path_planner": "lapf",
-        "waypoints": [(0*SQ, 5*SQ)],
-        "goal_heading": 0.0
+        "path_planner": "pp",
+        "waypoints": [cp.WP1, cp.WP2, cp.WP3, cp.WP4],
+        "goal_heading": 90.0
     },
     {
         "state": "NAV",
-        "path_planner": "pp",
-        "waypoints": [(1*SQ, 5*SQ)],
+        "path_planner": "lapf",
+        "waypoints": [cp.WP_CUSTOMER_ID],
         "goal_heading": 0.0
     },
     {
@@ -28,7 +28,7 @@ if MODE == "RANDOM":
     {
         "state": "NAV",
         "path_planner": "pp",
-        "goal_heading": 0.0
+        "waypoints": [cp.WP5]
     },
     ]
 
