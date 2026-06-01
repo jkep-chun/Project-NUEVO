@@ -10,12 +10,12 @@ STEP_LEVEL_POSITION = 1000 # TODO: Measure
 MAX_TURN_FOR_TRAFFIC_LIGHT_DEG = 30 # TODO: Verify
 
 POSE_TRAFFIC_LIGHT  = (0*SQ,    0*SQ)
-POSE_BURGER_BUN_1   = (0*SQ,    1.75*SQ)            # TODO: Tune
-POSE_BURGER_PATTY   = (0*SQ,    2*SQ)               # TODO: Tune
-POSE_BURGER_BUN_2   = (0*SQ,    2.25*SQ)            # TODO: Tune
+POSE_BURGER_BUN_1   = (0*SQ,    1.75*SQ)
+POSE_BURGER_PATTY   = (0*SQ,    2*SQ)
+POSE_BURGER_BUN_2   = (0*SQ,    2.25*SQ)
 POSE_FACE           = (3.5*SQ,  6*SQ - EXTRA)
-POSE_CUSTOMER_A     = (4*SQ,    2.125*SQ - EXTRA)   # TODO: Tune
-POSE_CUSTOMER_B     = (4*SQ,    1.875*SQ - EXTRA)   # TODO: Tune
+POSE_CUSTOMER_1     = (4*SQ,    2.25*SQ - EXTRA)
+POSE_CUSTOMER_2     = (4*SQ,    1.75*SQ - EXTRA)
 POSE_STOP_SIGN      = (4*SQ,    1.5*SQ - EXTRA)
 
 WP1 = (0*SQ,    6*SQ)
