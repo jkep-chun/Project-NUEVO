@@ -914,6 +914,9 @@ class NavigationMixin:
         signed_distance_mm > 0 → forward, < 0 → backward.
         velocity_mm is always positive; direction is taken from the sign.
         """
+        from robot.fsm_helpers import burgerbot_parameters as bp
+        from robot.util import VelocityProfile
+
         x0_mm, y0_mm, theta0_rad = self._get_pose_mm()
         direction = 1 if signed_distance_mm >= 0 else -1
         dt = 1.0 / update_hz
@@ -938,8 +941,15 @@ class NavigationMixin:
             # back CW regardless of whether it is moving forward or backward.
             angular = heading_kp * heading_err
 
-            # Decelerate smoothly within 3× tolerance, but keep enough speed to move.
-            speed = min(velocity_mm, max(velocity_mm * 0.25, abs(remaining) * 2.0))
+            # Apply trapezoidal velocity profile
+            speed = VelocityProfile.trapezoidal(
+                dist_from_start = abs(traveled),
+                dist_to_goal = abs(remaining),
+                max_v = velocity_mm,
+                accel = bp.MAX_ACCEL_MM_S2,
+                decel = bp.MAX_DECEL_MM_S2,
+                min_v = velocity_mm * 0.15
+            )
             linear = direction * speed
 
             self._send_body_velocity_mm(linear, angular)
@@ -1119,8 +1129,16 @@ class NavigationMixin:
         update_hz: float = float(DEFAULT_NAV_HZ),
     ) -> None:
         """Shared path-following loop for pure pursuit and APF planners."""
+        from robot.fsm_helpers import burgerbot_parameters as bp
+        from robot.util import VelocityProfile, get_path_length
+
         remaining_path = list(waypoints_mm)
         dt = 1.0 / update_hz
+
+        # Calculate total path distance for profiling
+        start_pose = self._get_pose_mm()
+        dist_to_first = _dist2d(start_pose[0], start_pose[1], remaining_path[0][0], remaining_path[0][1])
+        total_dist = dist_to_first + get_path_length(remaining_path)
 
         while not self._nav_cancel.is_set():
             x_mm, y_mm, theta_rad = self._get_pose_mm()
@@ -1129,12 +1147,28 @@ class NavigationMixin:
             )
 
             goal_x_mm, goal_y_mm = remaining_path[0]
-            if len(remaining_path) == 1 and _dist2d(x_mm, y_mm, goal_x_mm, goal_y_mm) <= tolerance_mm:
+            dist_to_next = _dist2d(x_mm, y_mm, goal_x_mm, goal_y_mm)
+
+            if len(remaining_path) == 1 and dist_to_next <= tolerance_mm:
                 self.stop()
                 return
 
+            # Compute remaining path distance
+            dist_to_goal = dist_to_next + get_path_length(remaining_path)
+            dist_from_start = total_dist - dist_to_goal
+
+            # Apply trapezoidal velocity profile
+            target_v = VelocityProfile.trapezoidal(
+                dist_from_start = dist_from_start,
+                dist_to_goal = dist_to_goal,
+                max_v = max_vel_mm,
+                accel = bp.MAX_ACCEL_MM_S2,
+                decel = bp.MAX_DECEL_MM_S2,
+                min_v = max_vel_mm * 0.15
+            )
+
             linear_mm, angular_rad_s = planner.compute_velocity(
-                (x_mm, y_mm, theta_rad), remaining_path, max_vel_mm
+                (x_mm, y_mm, theta_rad), remaining_path, target_v
             )
             self._send_body_velocity_mm(linear_mm, angular_rad_s)
             if not self._sleep_with_cancel(dt):
@@ -1165,14 +1199,33 @@ class NavigationMixin:
         update_hz: float = float(DEFAULT_NAV_HZ),
     ) -> None:
         """Navigation thread body: rotate to target_rad in place."""
+        from robot.fsm_helpers import burgerbot_parameters as bp
+        from robot.util import VelocityProfile
+
         dt = 1.0 / update_hz
+        _, _, theta0_rad = self._get_pose_mm()
+
         while not self._nav_cancel.is_set():
             _, _, theta_rad = self._get_pose_mm()
             error = _wrap_angle(target_rad - theta_rad)
             if abs(error) < tolerance_rad:
                 self.stop()
                 return
-            angular = max(-max_angular_rad, min(max_angular_rad, error * 3.0))
+
+            traveled = abs(_wrap_angle(theta_rad - theta0_rad))
+            remaining = abs(error)
+
+            # Apply trapezoidal profile to angular velocity
+            angular_speed_deg = VelocityProfile.trapezoidal(
+                dist_from_start = math.degrees(traveled),
+                dist_to_goal = math.degrees(remaining),
+                max_v = math.degrees(max_angular_rad),
+                accel = bp.MAX_ANGULAR_ACCEL_DEG_S2,
+                decel = bp.MAX_ANGULAR_DECEL_DEG_S2,
+                min_v = 15.0 # deg/s
+            )
+
+            angular = math.copysign(math.radians(angular_speed_deg), error)
             self._send_body_velocity_mm(0.0, angular)
             if not self._sleep_with_cancel(dt):
                 break
