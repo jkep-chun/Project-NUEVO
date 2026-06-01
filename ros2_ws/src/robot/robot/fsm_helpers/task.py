@@ -370,10 +370,14 @@ class PlanTask(Task):
 def build_task(robot: Robot, task_dict: dict) -> Task:
     state = task_dict.get("state")
     if state == "NAV":
+        waypoints = task_dict.get("waypoints", [])
+        vertices = list(waypoints)
+        x, y, _ = robot.get_pose()
+        vertices.insert(0, (x, y))
         return NavTask(
             robot=robot,
             waypoints=generate_open_rounded_path(
-                vertices=task_dict.get("waypoints"),
+                vertices=vertices,
                 R=100.0,
                 ds=25.0
             ),
