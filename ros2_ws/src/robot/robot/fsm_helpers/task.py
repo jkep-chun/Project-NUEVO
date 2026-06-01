@@ -410,21 +410,25 @@ class IdentTask(Task):
 
 def build_task(robot: Robot, task_dict: dict, mission_data: dict) -> Task:
     state = task_dict.get("state")
+
     if state == "NAV":
         waypoints = task_dict.get("waypoints", [])
         vertices = list(waypoints)
         x, y, _ = robot.get_pose()
         vertices.insert(0, (x, y))
-        return NavTask(
-            robot=robot,
-            mission_data=mission_data,
+        path_planner=task_dict.get("path_planner", "pp") # Defaults to "pp" over None
+        if path_planner == "pp":
             waypoints=generate_open_rounded_path(
                 vertices=vertices,
                 R=100.0,
                 ds=25.0
-            ),
+            )
+        return NavTask(
+            robot=robot,
+            mission_data=mission_data,
+            waypoints=waypoints,
             goal_heading=task_dict.get("goal_heading"),
-            path_planner=task_dict.get("path_planner", "pp") # Defaults to "pp" over None
+            path_planner=path_planner
         )
     elif state == "WAIT":
         return WaitTask(robot, mission_data, task_dict)
