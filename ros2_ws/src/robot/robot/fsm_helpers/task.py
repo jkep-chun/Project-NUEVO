@@ -39,9 +39,9 @@ class NavTask(Task):
         super().__init__(robot, mission_data)
         # Ensure waypoints is a list of tuples
         if waypoints is not None:
-            self.waypoints = [tuple(wp) for wp in np.atleast_2d(waypoints)]
+            self.vertices = [tuple(wp) for wp in np.atleast_2d(waypoints)]
         else:
-            self.waypoints = []
+            self.vertices = []
         
         self.goal_heading = goal_heading
         self.path_planner = path_planner
@@ -56,12 +56,20 @@ class NavTask(Task):
 
         self.stage_idx = 0
         self.stage_sequence = []
+        self.waypoints = list(self.vertices) # Fallback to original vertices
 
-        if self.waypoints:
+        if self.vertices:
             self.stage_sequence.append(bp.NavStage.POSITION)
-            # Add an initial heading pivot if in purepursuit
             if self.path_planner == "pp":
+                # Make a dense rounded path if in pure pursuit
                 x, y, _ = self.robot.get_pose()
+                path_vertices = [(x, y)] + self.vertices
+                self.waypoints = generate_open_rounded_path(
+                    vertices=path_vertices,
+                    R=bp.TURN_RADIUS,
+                    ds=bp.WP_SPACING
+                )
+                # Add an initial heading pivot if in purepursuit
                 # Find first waypoint far enough to justify a pivot
                 for wp in self.waypoints:
                     dx = wp[0] - x
@@ -186,16 +194,21 @@ class NavTask(Task):
             fx, fy = zip(*fused)
             plt.plot(fx, fy, label='Fused Trajectory', color='darkorange', linewidth=2)
 
-        # Plot current task waypoints
+        # Plot current task waypoints (densified path)
         if self.waypoints:
             wx = [wp[0] for wp in self.waypoints]
             wy = [wp[1] for wp in self.waypoints]
-            plt.scatter(wx, wy, color='green', marker='o', s=40, label='Task Waypoints', zorder=5)
-            plt.plot(wx, wy, color='green', linestyle='--', alpha=0.2)
+            plt.plot(wx, wy, color='green', linestyle='--', alpha=0.5, label='Waypoints')
             
             if len(wx) > 0:
                 plt.text(wx[0], wy[0], ' Start', color='green', verticalalignment='bottom', fontsize=9)
                 plt.text(wx[-1], wy[-1], ' End', color='red', verticalalignment='bottom', fontsize=9)
+
+        # Plot current task vertices (original given points)
+        if self.vertices:
+            vx = [v[0] for v in self.vertices]
+            vy = [v[1] for v in self.vertices]
+            plt.scatter(vx, vy, color='purple', marker='o', s=65, label='Vertices', zorder=4)
 
         # Current robot pose
         curr_x, curr_y, _ = self.robot.get_pose()
@@ -437,25 +450,13 @@ def build_task(robot: Robot, task_dict: dict, mission_data: dict) -> Task:
                 waypoints.append(cp.WP_CUSTOMER_2)
                 goal_heading = 0
                 delivery_segment = True
-
-        vertices = list(waypoints)
-        x, y, _ = robot.get_pose()
-        vertices.insert(0, (x, y))
-        path_planner = task_dict.get("path_planner", "pp") 
-        
-        if path_planner == "pp":
-            waypoints = generate_open_rounded_path(
-                vertices=vertices,
-                R=bp.TURN_RADIUS,
-                ds=bp.WP_SPACING
-            )
             
         return NavTask(
             robot=robot,
             mission_data=mission_data,
             waypoints=waypoints,
             goal_heading=goal_heading,
-            path_planner=path_planner,
+            path_planner=task_dict.get("path_planner", "pp"),
             delivery_segment=delivery_segment
         )
     elif state == "WAIT":
