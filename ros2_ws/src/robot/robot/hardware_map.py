@@ -135,8 +135,8 @@ DEFAULT_FSM_HZ = IO_INPUT_HZ
 DEFAULT_NAV_HZ = KINEMATICS_HZ
 
 POSITION_UNIT = Unit.MM
-WHEEL_DIAMETER = 78.8 # With bike tube
-WHEEL_BASE = 256.0 # 337.8
+WHEEL_DIAMETER = 78.4 # With bike tube meas. 78.8 TODO: Tune (HIGH)
+WHEEL_BASE = 263 # 256.0 # 337.8 # TODO: Tune (HIGH)
 INITIAL_THETA_DEG = 90.0
 
 # Differential drive configuration

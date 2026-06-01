@@ -5,7 +5,7 @@ User-defined mission tasks. Set MODE below
 from robot.fsm_helpers import course_parameters as cp
 from robot.fsm_helpers.course_parameters import SQ
 
-MODE = "TEST_NAV_FULL_WPS_DENSE"
+MODE = "TUNE_TURN"
 
 # =============================================================================
 # Navigation
@@ -18,7 +18,43 @@ elif MODE == "TUNE_TURN":
     tasks = [{
         "state": "NAV",
         "path_planner": "pp",
-        "waypoints": [(0*SQ, 1*SQ), (1*SQ, 1*SQ)],
+        #"waypoints": [(0*SQ, 6*SQ)],
+        #"waypoints": [(0*SQ, 1*SQ), (1*SQ, 1*SQ)],
+        "goal_heading": 0.0
+    },
+    {
+        "state": "NAV",
+        "path_planner": "pp",
+        "goal_heading": -90.0
+    },
+    {
+        "state": "NAV",
+        "path_planner": "pp",
+        "goal_heading": -180.0
+    },
+    {
+        "state": "NAV",
+        "path_planner": "pp",
+        "goal_heading": 90.0
+    },
+    {
+        "state": "NAV",
+        "path_planner": "pp",
+        "goal_heading": 0.0
+    },
+        {
+        "state": "NAV",
+        "path_planner": "pp",
+        "goal_heading": -90.0
+    },
+    {
+        "state": "NAV",
+        "path_planner": "pp",
+        "goal_heading": -180.0
+    },
+    {
+        "state": "NAV",
+        "path_planner": "pp",
         "goal_heading": 90.0
     }]
 
