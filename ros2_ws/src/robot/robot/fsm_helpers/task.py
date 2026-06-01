@@ -323,7 +323,15 @@ class ManipTask(Task):
         self.idx = 0
         self.handle = None
         self.stage_init = True
-        self.timer_start = None
+
+    def on_enter(self) -> None:
+        """Enable manipulator hardware once at task start."""
+        self.robot.step_enable(hm.LIFT_STEPPER_ID)
+        self.robot.enable_servo(hm.GRIPPER_SERVO_ID)
+
+    def on_exit(self) -> None:
+        """Disable power-hungry manipulator hardware upon exit."""
+        self.robot.step_disable(hm.LIFT_STEPPER_ID)
 
     def update(self):
         if self._is_done:
@@ -332,31 +340,43 @@ class ManipTask(Task):
         stage = self.sequence[self.idx]
 
         if self.stage_init:
-            print(f"bp.ManipStage: {stage.name}")
+            print(f"[Maniptask] {stage.name}")
             if stage == bp.ManipStage.LEVEL:
-                self.robot.step_enable(hm.LIFT_STEPPER)
-                self.robot.step_move(hm.LIFT_STEPPER, hm.LIFT_EXTEND_STEPS, hm.StepMoveType.ABSOLUTE, blocking=False)
-                self.handle = fh.StepHomingHandle(self.robot, hm.LIFT_STEPPER) # Reuse StepHomingHandle for non-blocking move
+                self.handle = fh.move_lift(
+                    robot=self.robot,
+                    position=hm.LIFT_EXTEND_STEPS,
+                    move_type=hm.StepMoveType.ABSOLUTE,
+                    disable_on_done=False
+                )
             elif stage == bp.ManipStage.OPEN:
-                self.robot.enable_servo(hm.GRIPPER_SERVO)
-                self.robot.set_servo(hm.GRIPPER_SERVO, hm.GRIPPER_OPEN_DEG)
-                self.timer_start = time.monotonic()
+                self.handle = fh.set_gripper(
+                    robot=self.robot,
+                    angle=hm.GRIPPER_OPEN_DEG
+                )
             elif stage == bp.ManipStage.CLOSE:
-                self.robot.enable_servo(hm.GRIPPER_SERVO)
-                self.robot.set_servo(hm.GRIPPER_SERVO, hm.GRIPPER_CLOSE_DEG)
-                self.timer_start = time.monotonic()
+                self.handle = fh.set_gripper(
+                    robot=self.robot,
+                    angle=hm.GRIPPER_CLOSE_DEG
+                )
             elif stage == bp.ManipStage.FORWARD:
-                self.handle = self.robot.move_forward(distance=100.0, velocity=bp.VELOCITY_MM_S, tolerance=bp.TOLERANCE_MM, blocking=False)
+                self.handle = fh.approach_ingredient_table(self.robot)
             elif stage == bp.ManipStage.RETREAT:
+                # TODO: Fix with production code (HIGH)
                 self.handle = self.robot.move_backward(distance=100.0, velocity=bp.VELOCITY_MM_S, tolerance=bp.TOLERANCE_MM, blocking=False)
             elif stage == bp.ManipStage.LOWER:
-                self.robot.step_enable(hm.LIFT_STEPPER)
-                self.robot.step_move(hm.LIFT_STEPPER, hm.LIFT_LOWER_STEPS, hm.StepMoveType.RELATIVE, blocking=False)
-                self.handle = fh.StepHomingHandle(self.robot, hm.LIFT_STEPPER)
+                self.handle = fh.move_lift(
+                    robot=self.robot,
+                    position=hm.LIFT_LOWER_STEPS,
+                    move_type=hm.StepMoveType.RELATIVE,
+                    disable_on_done=False
+                )
             elif stage == bp.ManipStage.RAISE:
-                self.robot.step_enable(hm.LIFT_STEPPER)
-                self.robot.step_move(hm.LIFT_STEPPER, hm.LIFT_BUFFER_STEPS, hm.StepMoveType.RELATIVE, blocking=False)
-                self.handle = fh.StepHomingHandle(self.robot, hm.LIFT_STEPPER)
+                self.handle = fh.move_lift(
+                    robot=self.robot,
+                    position=hm.LIFT_BUFFER_STEPS,
+                    move_type=hm.StepMoveType.RELATIVE,
+                    disable_on_done=False
+                )
             
             self.stage_init = False
 
@@ -365,10 +385,6 @@ class ManipTask(Task):
         if self.handle:
             if self.handle.is_done():
                 self.handle = None
-                done = True
-        elif self.timer_start:
-            if time.monotonic() - self.timer_start > 1.0: # 1s settle for servo
-                self.timer_start = None
                 done = True
         
         if done:
