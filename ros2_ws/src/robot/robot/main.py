@@ -17,6 +17,11 @@ class MissionFSM(RobotFSM):
     def __init__(self, robot: Robot, task_list: list[dict]):
         super().__init__(robot, initial_state_str="INIT")
 
+        # Robust logging path
+        self._log_dir = LOG_DIR
+        if not os.path.exists(self._log_dir):
+            self._log_dir = "ros2_ws/runtime_output/logs"
+
         # Tasks
         self.tasks = task_list
         self.current_task: Task = None
@@ -46,9 +51,13 @@ class MissionFSM(RobotFSM):
 
     def _setup_logging(self) -> None:
         """Initialize sqlite3 database for logging."""
-        os.makedirs(LOG_DIR, exist_ok=True)
+        if self.conn:
+            self.conn.close()
+            self.conn = None
+
+        os.makedirs(self._log_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        db_path = os.path.join(LOG_DIR, f"fsm_log_{timestamp}.db")
+        db_path = os.path.join(self._log_dir, f"fsm_log_{timestamp}.db")
         print(f"Logging mission data to: {db_path}")
         
         self.conn = sqlite3.connect(db_path)

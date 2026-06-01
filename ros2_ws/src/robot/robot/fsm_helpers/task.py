@@ -35,8 +35,8 @@ class Task:
 
 
 class NavTask(Task):
-    def __init__(self, robot, waypoints, goal_heading=None, path_planner="pp"):
-        super().__init__(robot)
+    def __init__(self, robot, mission_data, waypoints, goal_heading=None, path_planner="pp"):
+        super().__init__(robot, mission_data)
         # Ensure waypoints is a list of tuples
         if waypoints is not None:
             self.waypoints = [tuple(wp) for wp in np.atleast_2d(waypoints)]
@@ -417,6 +417,7 @@ def build_task(robot: Robot, task_dict: dict, mission_data: dict) -> Task:
         vertices.insert(0, (x, y))
         return NavTask(
             robot=robot,
+            mission_data=mission_data,
             waypoints=generate_open_rounded_path(
                 vertices=vertices,
                 R=100.0,
