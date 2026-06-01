@@ -195,7 +195,7 @@ class NavTask(Task):
             plt.plot(fx, fy, label='Fused Trajectory', color='darkorange', linewidth=2)
 
         # Plot current task waypoints (densified path)
-        if self.waypoints:
+        if self.waypoints is not None and len(self.waypoints) > 0:
             wx = [wp[0] for wp in self.waypoints]
             wy = [wp[1] for wp in self.waypoints]
             plt.plot(wx, wy, color='green', linestyle='--', alpha=0.5, label='Waypoints')
@@ -205,7 +205,7 @@ class NavTask(Task):
                 plt.text(wx[-1], wy[-1], ' End', color='red', verticalalignment='bottom', fontsize=9)
 
         # Plot current task vertices (original given points)
-        if self.vertices:
+        if self.vertices is not None and len(self.vertices) > 0:
             vx = [v[0] for v in self.vertices]
             vy = [v[1] for v in self.vertices]
             plt.scatter(vx, vy, color='purple', marker='o', s=65, label='Vertices', zorder=4)
