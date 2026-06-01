@@ -7,7 +7,7 @@ from robot.fsm_helpers.course_parameters import SQ
 
 start_pose = (0, 0, 90)
 
-MODE = "RANDOM"
+MODE = "TUNE_LAPF"
 
 if MODE == "RANDOM":
     tasks = [{
@@ -19,12 +19,6 @@ if MODE == "RANDOM":
     {
         "state": "NAV",
         "path_planner": "lapf",
-        "waypoints": [cp.WP4B],
-        "goal_heading": 0.0
-    },
-    {
-        "state": "NAV",
-        "path_planner": "pp",
         "waypoints": [cp.WP_CUSTOMER_ID],
         "goal_heading": 0.0
     },
@@ -34,7 +28,13 @@ if MODE == "RANDOM":
     {
         "state": "NAV",
         "path_planner": "pp",
-        "waypoints": [cp.WP5]
+        "waypoints": [cp.WP5],
+        "goal_heading": 0.0
+    },
+    {
+        "state": "NAV",
+        "path_planner": "pp",
+        "waypoints": [cp.WP6]
     },
     ]
 
@@ -49,41 +49,6 @@ elif MODE == "TUNE_TURN":
         #"waypoints": [(0*SQ, 6*SQ)],
         #"waypoints": [(0*SQ, 1*SQ), (1*SQ, 1*SQ)],
         "goal_heading": 0.0
-    },
-    {
-        "state": "NAV",
-        "path_planner": "pp",
-        "goal_heading": -90.0
-    },
-    {
-        "state": "NAV",
-        "path_planner": "pp",
-        "goal_heading": -180.0
-    },
-    {
-        "state": "NAV",
-        "path_planner": "pp",
-        "goal_heading": 90.0
-    },
-    {
-        "state": "NAV",
-        "path_planner": "pp",
-        "goal_heading": 0.0
-    },
-        {
-        "state": "NAV",
-        "path_planner": "pp",
-        "goal_heading": -90.0
-    },
-    {
-        "state": "NAV",
-        "path_planner": "pp",
-        "goal_heading": -180.0
-    },
-    {
-        "state": "NAV",
-        "path_planner": "pp",
-        "goal_heading": 90.0
     }]
 
 elif MODE == "SQUARE2":
@@ -119,9 +84,30 @@ elif MODE == "IDENT":
 elif MODE == "WAIT":
     tasks = [{"state": "WAIT", "trigger": "green_light"}]
 
+elif MODE == "TUNE_LAPF":
+    tasks = [{
+        "state": "NAV",
+        "path_planner": "lapf",
+        "waypoints": [(0*SQ, 3*SQ)],
+        "goal_heading": 0.0
+    }
+    ]
+
 # =============================================================================
 # Multiple tasks
 # =============================================================================
+
+elif MODE == "LAPF_TO_IDENT":
+    tasks = [{
+        "state": "NAV",
+        "path_planner": "lapf",
+        "waypoints": [(0.75*SQ, 5*SQ)],
+        "goal_heading": 0.0
+    },
+    {
+        "state": "IDENT",
+    }
+    ]
 
 elif MODE == "TEST_NAV":
     tasks = [
