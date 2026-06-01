@@ -620,9 +620,10 @@ class NavigationMixin:
 
         Always returns a MotionHandle.
         """
-        if not waypoints:
+        if waypoints is None or len(waypoints) == 0:
             raise ValueError("waypoints must not be empty")
 
+        waypoints = np.atleast_2d(waypoints)
         path_mm = [(float(x) * self._unit.value, float(y) * self._unit.value) for x, y in waypoints]
         vel_mm       = float(velocity)   * self._unit.value
         lookahead_mm = float(lookahead)  * self._unit.value
@@ -669,9 +670,10 @@ class NavigationMixin:
           robot_rear_mm      — axle to rear face  (front-drive: tail distance)
           robot_half_width_mm — half-width of the body
         """
-        if not waypoints:
+        if waypoints is None or len(waypoints) == 0:
             raise ValueError("waypoints must not be empty")
 
+        waypoints = np.atleast_2d(waypoints)
         path_mm = [(float(x) * self._unit.value, float(y) * self._unit.value) for x, y in waypoints]
         vel_mm            = float(velocity)        * self._unit.value
         lookahead_mm      = float(lookahead)       * self._unit.value

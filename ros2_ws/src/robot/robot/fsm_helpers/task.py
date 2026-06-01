@@ -3,6 +3,9 @@ from __future__ import annotations
 import math
 import time
 import os
+import numpy as np
+
+from robot.fsm_helpers.path_helpers import generate_open_rounded_path
 
 from robot.robot import Robot
 import robot.hardware_map as hm
@@ -32,12 +35,14 @@ class Task:
 
 
 class NavTask(Task):
-    def __init__(self, robot, waypoints, mission_data, goal_heading=None, path_planner="pp"):
-        super().__init__(robot, mission_data)
-        # Ensure waypoints is a list of tuples/lists
-        if waypoints and not isinstance(waypoints[0], (list, tuple)):
-            waypoints = [waypoints]
-        self.waypoints = waypoints
+    def __init__(self, robot, waypoints, goal_heading=None, path_planner="pp"):
+        super().__init__(robot)
+        # Ensure waypoints is a list of tuples
+        if waypoints is not None:
+            self.waypoints = [tuple(wp) for wp in np.atleast_2d(waypoints)]
+        else:
+            self.waypoints = []
+        
         self.goal_heading = goal_heading
         self.path_planner = path_planner
 
@@ -406,10 +411,17 @@ class IdentTask(Task):
 def build_task(robot: Robot, task_dict: dict, mission_data: dict) -> Task:
     state = task_dict.get("state")
     if state == "NAV":
+        waypoints = task_dict.get("waypoints", [])
+        vertices = list(waypoints)
+        x, y, _ = robot.get_pose()
+        vertices.insert(0, (x, y))
         return NavTask(
             robot=robot,
-            waypoints=task_dict.get("waypoints"),
-            mission_data=mission_data,
+            waypoints=generate_open_rounded_path(
+                vertices=vertices,
+                R=100.0,
+                ds=25.0
+            ),
             goal_heading=task_dict.get("goal_heading"),
             path_planner=task_dict.get("path_planner", "pp") # Defaults to "pp" over None
         )

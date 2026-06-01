@@ -9,7 +9,7 @@ def generate_open_rounded_path(vertices, R, ds):
     :param R: Desired turning radius for intermediate corners.
     :param ds: Desired linear spacing between generated waypoints.
     """
-    vertices = np.array(vertices)
+    vertices = np.atleast_2d(vertices)
     num_verts = len(vertices)
     rounded_path = []
     

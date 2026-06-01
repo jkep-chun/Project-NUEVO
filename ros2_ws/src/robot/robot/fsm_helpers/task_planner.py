@@ -5,31 +5,60 @@ User-defined mission tasks. Set MODE below
 from robot.fsm_helpers import course_parameters as cp
 from robot.fsm_helpers.course_parameters import SQ
 
-MODE = "TEST_IDENT"
+MODE = "TUNE_TURN"
 
-if MODE == "TEST_LAPF":
-    tasks = [
-        {"state": "NAV", "waypoints": (0, 3*610.0, 0)}
-    ]
+# =============================================================================
+# Navigation
+# =============================================================================
 
-elif MODE == "TEST_CAM":
-    tasks = [
-        {"state": "WAIT", "trigger": "green_light"}
-    ]
+if MODE == "TUNE_LAPF":
+    tasks = [{"state": "NAV", "waypoints": (0, 3*610.0, 0)}]
 
-elif MODE == "TEST_NAV":
-    tasks = [
-        {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": cp.POSE_BURGER_BUN_1},
-        {"state": "NAV", "path_planner": "pp", "vision": "burger_patty", "waypoints": cp.POSE_BURGER_PATTY},
-        {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": cp.POSE_BURGER_BUN_2},
-        {"state": "NAV", "path_planner": "pp", "waypoints": [cp.WP1, cp.WP2, cp.WP3, cp.WP4]},
-        {"state": "NAV", "path_planner": "lapf", "vision": "face", "waypoints": cp.POSE_FACE},
-        {"state": "NAV", "path_planner": "pp", "vision": "customer", "waypoints": [cp.WP5, cp.POSE_CUSTOMER_A]},
-        {"state": "NAV", "path_planner": "pp", "vision": "stop_sign", "waypoints": cp.POSE_STOP_SIGN},
-        {"state": "NAV", "path_planner": "pp", "waypoints": cp.WP6}
-    ]
+elif MODE == "TUNE_TURN":
+    tasks = [{
+        "state": "NAV",
+        "path_planner": "pp",
+        #"waypoints": [(0*SQ, 6*SQ)],
+        #"waypoints": [(0*SQ, 1*SQ), (1*SQ, 1*SQ)],
+        "goal_heading": 0.0
+    },
+    {
+        "state": "NAV",
+        "path_planner": "pp",
+        "goal_heading": -90.0
+    },
+    {
+        "state": "NAV",
+        "path_planner": "pp",
+        "goal_heading": -180.0
+    },
+    {
+        "state": "NAV",
+        "path_planner": "pp",
+        "goal_heading": 90.0
+    },
+    {
+        "state": "NAV",
+        "path_planner": "pp",
+        "goal_heading": 0.0
+    },
+        {
+        "state": "NAV",
+        "path_planner": "pp",
+        "goal_heading": -90.0
+    },
+    {
+        "state": "NAV",
+        "path_planner": "pp",
+        "goal_heading": -180.0
+    },
+    {
+        "state": "NAV",
+        "path_planner": "pp",
+        "goal_heading": 90.0
+    }]
 
-elif MODE == "TEST_NAV_SQUARE2":
+elif MODE == "SQUARE2":
     tasks = [
         {"state": "NAV", "path_planner": "pp", "waypoints": [
             (0*SQ, 0*SQ),
@@ -45,29 +74,40 @@ elif MODE == "TEST_NAV_SQUARE2":
         }
     ]
 
-elif MODE == "TEST_TUNE_TURN":
-    tasks = [
-        {"state": "NAV", "path_planner": "pp", "waypoints": [
-            (0*SQ, 0*SQ),
-            (0*SQ, 1*SQ),
-            (1*SQ, 1*SQ, 0)
-            ]
-        }
-    ]
-
-elif MODE == "TEST_NAV_FULL_WPS":
+elif MODE == "ALL_WAYPOINTS":
     tasks = [
         {"state": "NAV", "path_planner": "pp", "waypoints": [cp.WP0, cp.WP1, cp.WP2, cp.WP3, cp.WP4]},
         {"state": "NAV", "path_planner": "lapf", "waypoints": [cp.POSE_FACE]},
         {"state": "NAV", "path_planner": "pp", "waypoints": [cp.POSE_FACE, cp.WP5, cp.WP6]}
     ]
 
-elif MODE == "TEST_IDENT":
+# =============================================================================
+# Other single tasks
+# =============================================================================
+
+elif MODE == "IDENT":
+    tasks = [{"state": "IDENT"}]
+
+elif MODE == "WAIT":
+    tasks = [{"state": "WAIT", "trigger": "green_light"}]
+
+# =============================================================================
+# Multiple tasks
+# =============================================================================
+
+elif MODE == "TEST_NAV":
     tasks = [
-        {"state": "IDENT"}
+        {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": cp.POSE_BURGER_BUN_1},
+        {"state": "NAV", "path_planner": "pp", "vision": "burger_patty", "waypoints": cp.POSE_BURGER_PATTY},
+        {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": cp.POSE_BURGER_BUN_2},
+        {"state": "NAV", "path_planner": "pp", "waypoints": [cp.WP1, cp.WP2, cp.WP3, cp.WP4]},
+        {"state": "NAV", "path_planner": "lapf", "vision": "face", "waypoints": cp.POSE_FACE},
+        {"state": "NAV", "path_planner": "pp", "vision": "customer", "waypoints": [cp.WP5, cp.POSE_CUSTOMER_A]},
+        {"state": "NAV", "path_planner": "pp", "vision": "stop_sign", "waypoints": cp.POSE_STOP_SIGN},
+        {"state": "NAV", "path_planner": "pp", "waypoints": cp.WP6}
     ]
-    
-elif MODE == "FULL_RUN":
+
+elif MODE == "FINAL":
     tasks = [
         {"state": "WAIT", "trigger": "green_light"},
         {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": cp.POSE_BURGER_BUN_1},
