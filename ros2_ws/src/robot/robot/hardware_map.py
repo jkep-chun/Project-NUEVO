@@ -159,19 +159,26 @@ TAG_BODY_OFFSET_Y_MM = 0.0
 TAG_ID = 20
 
 # Servo 1 — gripper jaw
-GRIPPER_SERVO = ServoChannel.CH_1
+GRIPPER_SERVO_ID = ServoChannel.CH_1
 GRIPPER_LIMIT = Limit.LIM_2
 GRIPPER_OPEN_DEG = 0.0
 GRIPPER_CLOSE_DEG = 40.0 # TODO: Switch to limit switch feedback
 GRIPPER_SETTLE_S = 1.0
-GRIPPER_HOME_VELOCITY = 4.0 # TODO: Deg/s
+GRIPPER_HOME_SPEED = 4.0     # Deg/s TODO: Tune (MED)
+GRIPPER_SPEED = 20.0    # Dev/s TODO: Tune (HIGH) 
 
 # Stepper 1 — lift
-LIFT_STEPPER = Stepper.STEPPER_1
+LIFT_STEPPER_ID = Stepper.STEPPER_1
 LIFT_EXTEND_STEPS = -15000 # Absolute, TODO: Measure
 LIFT_LOWER_STEPS = 3000 # Relative, TODO: Measure
 LIFT_BUFFER_STEPS = -1000 # Relative, TODO: Measure
 LIFT_MAX_VELOCITY = 5000 # TODO: Verify
 LIFT_ACCELERATION = 1200 # TODO: Verify
-LIFT_HOME_VELOCITY = 1000 # TODO: Verify
+LIFT_HOME_VELOCITY = 2500 # TODO: Verify (MED)
 LIFT_MOVE_TIMEOUT_S = 10.0
+
+# Other limit switches
+TABLE_LIMIT = Limit.LIM_3 # TODO: Verify (HIGH)
+
+# PID Gains
+WHEEL_VEL_PID = (0.17, 0.09, 0.0) # (P, I, D)
