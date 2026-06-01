@@ -221,12 +221,19 @@ class NavTask(Task):
         plt.axis('equal')
         
         # Configure grid lines at SQ intervals, offset so (0,0) is centered in a square
-        from matplotlib.ticker import MultipleLocator
+        import matplotlib.ticker as ticker
         ax = plt.gca()
-        # Offset is SQ/2 because (0,0) is the center of the square
         offset = cp.SQ / 2.0
-        ax.xaxis.set_major_locator(MultipleLocator(cp.SQ, offset=-offset))
-        ax.yaxis.set_major_locator(MultipleLocator(cp.SQ, offset=-offset))
+        
+        # Calculate tick locations spanning the current view
+        xmin, xmax = ax.get_xlim()
+        ymin, ymax = ax.get_ylim()
+        
+        xticks = np.arange(math.floor((xmin - offset) / cp.SQ) * cp.SQ + offset, xmax + cp.SQ, cp.SQ)
+        yticks = np.arange(math.floor((ymin - offset) / cp.SQ) * cp.SQ + offset, ymax + cp.SQ, cp.SQ)
+        
+        ax.xaxis.set_major_locator(ticker.FixedLocator(xticks))
+        ax.yaxis.set_major_locator(ticker.FixedLocator(yticks))
         
         plt.grid(True, linestyle=':', alpha=0.6)
         
