@@ -35,7 +35,7 @@ class Task:
 
 
 class NavTask(Task):
-    def __init__(self, robot, mission_data, waypoints, goal_heading=None, path_planner="pp"):
+    def __init__(self, robot, mission_data, waypoints, goal_heading=None, path_planner="pp", delivery_segment=False):
         super().__init__(robot, mission_data)
         # Ensure waypoints is a list of tuples
         if waypoints is not None:
@@ -46,19 +46,7 @@ class NavTask(Task):
         self.goal_heading = goal_heading
         self.path_planner = path_planner
         self.mission_data = mission_data
-        self.delivery_segment = False
-
-        # Robustness: Inject customer data BEFORE determining stage sequence
-        if not self.mission_data.get("delivery_status"):
-            matched_customer = self.mission_data.get("matched_customer")
-            if matched_customer == 1:
-                self.waypoints.append(cp.WP_CUSTOMER_1)
-                self.goal_heading = 0
-                self.delivery_segment = True
-            elif matched_customer == 2:
-                self.waypoints.append(cp.WP_CUSTOMER_2)
-                self.goal_heading = 0
-                self.delivery_segment = True
+        self.delivery_segment = delivery_segment
 
         self._is_done = False
         self.wp_lapf_idx = 0
@@ -73,11 +61,18 @@ class NavTask(Task):
             # Add an initial heading pivot if in purepursuit
             if self.path_planner == "pp":
                 x, y, _ = self.robot.get_pose()
-                dx = self.waypoints[0][0] - x
-                dy = self.waypoints[0][1] - y
-                if math.hypot(dx, dy) > bp.TOLERANCE_MM:
-                    self.start_heading = math.degrees(math.atan2(dy, dx))
-                    self.stage_sequence.insert(0, bp.NavStage.START_HEADING)
+                # Find first waypoint far enough to justify a pivot
+                for wp in self.waypoints:
+                    dx = wp[0] - x
+                    dy = wp[1] - y
+                    if math.hypot(dx, dy) > bp.TOLERANCE_MM:
+                        self.start_heading = math.degrees(math.atan2(dy, dx))
+                        self.stage_sequence.insert(0, bp.NavStage.START_HEADING)
+                        break
+        
+        # Add goal heading if provided
+        if self.goal_heading is not None:
+            self.stage_sequence.append(bp.NavStage.HEADING)
         
         # Add goal heading if provided
         if self.goal_heading is not None:
@@ -430,23 +425,41 @@ def build_task(robot: Robot, task_dict: dict, mission_data: dict) -> Task:
     state = task_dict.get("state")
 
     if state == "NAV":
-        waypoints = task_dict.get("waypoints", [])
+        waypoints = list(task_dict.get("waypoints", []))
+        goal_heading = task_dict.get("goal_heading")
+        delivery_segment = False
+
+        # Robustness: Inject customer data BEFORE path generation
+        if not mission_data.get("delivery_status"):
+            matched_customer = mission_data.get("matched_customer")
+            if matched_customer == 1:
+                waypoints.append(cp.WP_CUSTOMER_1)
+                goal_heading = 0
+                delivery_segment = True
+            elif matched_customer == 2:
+                waypoints.append(cp.WP_CUSTOMER_2)
+                goal_heading = 0
+                delivery_segment = True
+
         vertices = list(waypoints)
         x, y, _ = robot.get_pose()
         vertices.insert(0, (x, y))
-        path_planner=task_dict.get("path_planner", "pp") # Defaults to "pp" over None
+        path_planner = task_dict.get("path_planner", "pp") 
+        
         if path_planner == "pp":
-            waypoints=generate_open_rounded_path(
+            waypoints = generate_open_rounded_path(
                 vertices=vertices,
                 R=100.0,
                 ds=25.0
             )
+            
         return NavTask(
             robot=robot,
             mission_data=mission_data,
             waypoints=waypoints,
-            goal_heading=task_dict.get("goal_heading"),
-            path_planner=path_planner
+            goal_heading=goal_heading,
+            path_planner=path_planner,
+            delivery_segment=delivery_segment
         )
     elif state == "WAIT":
         return WaitTask(robot, mission_data, task_dict)
