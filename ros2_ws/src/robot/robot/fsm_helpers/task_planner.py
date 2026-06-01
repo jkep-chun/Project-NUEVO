@@ -7,35 +7,36 @@ from robot.fsm_helpers.course_parameters import SQ
 
 start_pose = (0, 0, 90)
 
-MODE = "TUNE_LAPF"
+MODE = "RANDOM"
 
 if MODE == "RANDOM":
     tasks = [{
         "state": "NAV",
         "path_planner": "pp",
-        "waypoints": [cp.WP1, cp.WP2, cp.WP3, cp.WP4],
+        # "waypoints": [cp.WP1, cp.WP2, cp.WP3, cp.WP4],
+        "waypoints": [(0, SQ), (SQ, SQ)],
         "goal_heading": 90.0
     },
-    {
-        "state": "NAV",
-        "path_planner": "lapf",
-        "waypoints": [cp.WP_CUSTOMER_ID],
-        "goal_heading": 0.0
-    },
-    {
-        "state": "IDENT",
-    },
-    {
-        "state": "NAV",
-        "path_planner": "pp",
-        "waypoints": [cp.WP5],
-        "goal_heading": 0.0
-    },
-    {
-        "state": "NAV",
-        "path_planner": "pp",
-        "waypoints": [cp.WP6]
-    },
+    # {
+    #     "state": "NAV",
+    #     "path_planner": "lapf",
+    #     "waypoints": [cp.WP_CUSTOMER_ID],
+    #     "goal_heading": 0.0
+    # },
+    # {
+    #     "state": "IDENT",
+    # },
+    # {
+    #     "state": "NAV",
+    #     "path_planner": "pp",
+    #     "waypoints": [cp.WP5],
+    #     "goal_heading": 0.0
+    # },
+    # {
+    #     "state": "NAV",
+    #     "path_planner": "pp",
+    #     "waypoints": [cp.WP6]
+    # },
     ]
 
 # =============================================================================

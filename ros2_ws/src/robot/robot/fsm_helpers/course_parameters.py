@@ -6,7 +6,6 @@ SQ = 609.6 # Length of one square in mm
 
 EXTRA = 25.0 # Extra distance traveled over ramp (mm) # TODO: Tune (HIGH)
 
-STEP_LEVEL_POSITION = 1000 # TODO: Measure
 MAX_TURN_FOR_TRAFFIC_LIGHT_DEG = 30 # TODO: Verify
 
 WP_TRAFFIC_LIGHT  = (0*SQ,    0*SQ)

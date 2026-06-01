@@ -449,8 +449,8 @@ def build_task(robot: Robot, task_dict: dict, mission_data: dict) -> Task:
         if path_planner == "pp":
             waypoints = generate_open_rounded_path(
                 vertices=vertices,
-                R=100.0,
-                ds=25.0
+                R=bp.TURN_RADIUS,
+                ds=bp.WP_SPACING
             )
             
         return NavTask(
