@@ -3,15 +3,22 @@ import cv2
 
 from robot.robot import Robot
 
-VISION_STALE_SEC = 0.5  # TODO: Tune
-MIN_TRAFFIC_LIGHT_CONFIDENCE = 0.50
-MIN_STOP_SIGN_CONFIDENCE = 0.50
-MIN_PERSON_CONFIDENCE = 0.50
+# TODO: Make functions consistent (LOW)
 
-IMAGE_DIR = Path("runtime_output/vision")
+VISION_STALE_SEC = 0.5              # TODO: Tune (LOW)
+MIN_TRAFFIC_LIGHT_CONFIDENCE = 0.25 # TODO: Verify
+MIN_STOP_SIGN_CONFIDENCE = 0.70     # TODO: Verify
+MIN_PERSON_CONFIDENCE = 0.50        # TODO: Tune (HIGH)
+
+# Use absolute path inside Docker, fallback to relative for local development
+IMAGE_DIR = Path("/runtime_output/vision")
+if not IMAGE_DIR.exists():
+    IMAGE_DIR = Path("ros2_ws/runtime_output/vision")
+
 IDENTIFY_PERSON_PATH = IMAGE_DIR / "identify_person.jpg"
 SUSPECT_1_PATH = IMAGE_DIR / "suspect_1.jpg"
 SUSPECT_2_PATH = IMAGE_DIR / "suspect_2.jpg"
+CAMERA_RAW_PATH = IMAGE_DIR / "camera_raw.jpg"
 
 CAMERA_INDEX = 10
 MIN_IMAGE_MATCH_SCORE = 20
@@ -41,13 +48,23 @@ def find_traffic_light_color(robot: Robot) -> str | None:
 
     return best_color
 
+def sees_traffic_light(robot: Robot) -> bool:
+    """Return True if the robot sees a recent stop sign detection."""
+    if not robot.is_vision_active(timeout_s=VISION_STALE_SEC):
+        return False
+    
+    return robot.has_detection(
+        class_name="traffic light",
+        min_confidence=MIN_TRAFFIC_LIGHT_CONFIDENCE
+    )
+
 def sees_stop_sign(robot: Robot) -> bool:
     """Return True if the robot sees a recent stop sign detection."""
     if not robot.is_vision_active(timeout_s=VISION_STALE_SEC):
         return False
 
     return robot.has_detection(
-        "stop sign",
+        class_name="stop sign",
         min_confidence=MIN_STOP_SIGN_CONFIDENCE,
     )
 
@@ -57,25 +74,21 @@ def sees_person(robot: Robot) -> bool:
         return False
 
     return robot.has_detection(
-        "person",
+        class_name="person",
         min_confidence=MIN_PERSON_CONFIDENCE,
     )
 
 def capture_photo(save_path: Path, camera_index: int = CAMERA_INDEX) -> bool:
-    """Capture one frame from the camera and save it."""
+    """Capture one frame from the camera (via camera_raw.jpg) and save it."""
     IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
-    cap = cv2.VideoCapture(camera_index, cv2.CAP_V4L2)
-    
-    if not cap.isOpened():
-        print("ERROR: Could not open camera.")
+    if not CAMERA_RAW_PATH.exists():
+        print(f"ERROR: {CAMERA_RAW_PATH} does not exist. Is vision_node running?")
         return False
 
-    ret, frame = cap.read()
-    cap.release()
-
-    if not ret or frame is None:
-        print("ERROR: Could not read camera frame.")
+    frame = cv2.imread(str(CAMERA_RAW_PATH))
+    if frame is None:
+        print(f"ERROR: Could not read {CAMERA_RAW_PATH}")
         return False
 
     success = cv2.imwrite(str(save_path), frame)
@@ -100,6 +113,94 @@ def capture_suspect_1() -> bool:
 def capture_suspect_2() -> bool:
     """Capture and save the second candidate target image."""
     return capture_photo(SUSPECT_2_PATH)
+
+def capture_and_crop_identify_person(robot: Robot, save_path: Path) -> bool:
+    """
+    Capture a photo from camera_raw.jpg, find the largest person, and save the cropped image.
+    
+    Args:
+        robot: The Robot instance to get detections from.
+        save_path: Path where the cropped image will be saved.
+        
+    Returns:
+        True if successful, False otherwise.
+    """
+    if not robot.is_vision_active(timeout_s=VISION_STALE_SEC):
+        print("ERROR: Vision is not active.")
+        return False
+
+    detections = robot.get_detections("person")
+    if not detections:
+        print("ERROR: No person detected in the latest vision frame.")
+        return False
+
+    img_w, img_h = robot.get_detection_image_size()
+    if img_h == 0:
+        print("ERROR: Could not determine image size from vision detections.")
+        return False
+
+    y_threshold = img_h / 3.0
+
+    def get_roi_area(det: dict) -> float:
+        """Calculate the area of the detection bounding box that falls within the bottom 2/3 ROI."""
+        bbox = det["bbox"]
+        x, y, w, h = bbox["x"], bbox["y"], bbox["width"], bbox["height"]
+        
+        # Calculate vertical overlap with [y_threshold, img_h]
+        y1 = max(y, y_threshold)
+        y2 = min(y + h, img_h)
+        
+        if y2 <= y1:
+            return 0.0
+        
+        return float(w * (y2 - y1))
+
+    # Find the detection with the largest area within the bottom 2/3 ROI
+    detections_with_roi_area = []
+    for det in detections:
+        roi_area = get_roi_area(det)
+        if roi_area > 0:
+            detections_with_roi_area.append((det, roi_area))
+
+    if not detections_with_roi_area:
+        print(f"ERROR: No person detected in the bottom 2/3 of the frame (y > {y_threshold:.1f}).")
+        return False
+
+    largest_person, _ = max(detections_with_roi_area, key=lambda x: x[1])
+    bbox = largest_person["bbox"]
+
+    IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+
+    if not CAMERA_RAW_PATH.exists():
+        print(f"ERROR: {CAMERA_RAW_PATH} does not exist. Is vision_node running?")
+        return False
+
+    frame = cv2.imread(str(CAMERA_RAW_PATH))
+    if frame is None:
+        print(f"ERROR: Could not read {CAMERA_RAW_PATH}")
+        return False
+
+    # Crop the frame based on the bounding box
+    x, y, w, h = bbox["x"], bbox["y"], bbox["width"], bbox["height"]
+    img_h, img_w = frame.shape[:2]
+
+    # Ensure crop is within image boundaries
+    x1, y1 = max(0, x), max(0, y)
+    x2, y2 = min(img_w, x + w), min(img_h, y + h)
+
+    if x2 <= x1 or y2 <= y1:
+        print(f"ERROR: Invalid crop dimensions: {x1, y1, x2, y2}")
+        return False
+
+    cropped_frame = frame[y1:y2, x1:x2]
+    success = cv2.imwrite(str(save_path), cropped_frame)
+
+    if not success:
+        print(f"ERROR: Could not save cropped image to {save_path}")
+        return False
+
+    print(f"Saved cropped person to {save_path} ({x2-x1}x{y2-y1})")
+    return True
 
 def image_match_score(reference_path: Path, candidate_path: Path) -> int:
     """Compare two saved images using ORB feature matching. Higher score means more similar."""
@@ -159,6 +260,3 @@ def choose_matching_suspect(min_score: int = MIN_IMAGE_MATCH_SCORE) -> str | Non
 
     print("Tie between suspect_1 and suspect_2.")
     return None
-    # functions that:
-        # gender detected, return male or female
-    
