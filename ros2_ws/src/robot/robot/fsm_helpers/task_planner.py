@@ -7,7 +7,7 @@ from robot.fsm_helpers.course_parameters import SQ
 
 start_pose = (0, 0, 90)
 
-MODE = "ALL_WAYPOINTS"
+MODE = "helpers"
 
 if MODE == "RANDOM":
     tasks = [{
