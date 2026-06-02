@@ -231,9 +231,7 @@ class StepMoveHandle(FsmHandle):
 
     def cancel(self) -> None:
         """Abort motion."""
-        self._robot.step_stop(self._id)
-        if self._disable_on_done:
-            self._robot.step_disable(self._id)
+        self._robot.step_disable(self._id)
         super().cancel()
 
 
