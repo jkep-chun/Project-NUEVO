@@ -6,6 +6,7 @@ import os
 import numpy as np
 
 from robot.fsm_helpers.path_helpers import generate_open_rounded_path
+from robot.util import densify_polyline
 
 from robot.robot import Robot
 import robot.hardware_map as hm
@@ -60,24 +61,41 @@ class NavTask(Task):
 
         if self.vertices:
             self.stage_sequence.append(bp.NavStage.POSITION)
+            # Remove vertices if within TOLERANCE_MM of initial pose
+            x, y, _ = self.robot.get_pose()
+            while self.vertices:
+                v = self.vertices[0]
+                dx = v[0] - x
+                dy = v[1] - y
+                if math.hypot(dx, dy) < bp.TOLERANCE_MM:
+                    self.vertices.pop(0)
+                else:
+                    break
+            path_vertices = [(x, y)] + self.vertices
+
             if self.path_planner == "pp":
                 # Make a dense rounded path if in pure pursuit
-                x, y, _ = self.robot.get_pose()
-                path_vertices = [(x, y)] + self.vertices
                 self.waypoints = generate_open_rounded_path(
                     vertices=path_vertices,
                     R=bp.TURN_RADIUS,
                     ds=bp.WP_SPACING
                 )
-                # Add an initial heading pivot if in purepursuit
-                # Find first waypoint far enough to justify a pivot
-                for wp in self.waypoints:
-                    dx = wp[0] - x
-                    dy = wp[1] - y
-                    if math.hypot(dx, dy) > bp.TOLERANCE_MM:
-                        self.start_heading = math.degrees(math.atan2(dy, dx))
-                        self.stage_sequence.insert(0, bp.NavStage.START_HEADING)
-                        break
+
+            elif self.path_planner == "lapf":
+                # Make denser polyline path if in lapf
+                self.waypoints = densify_polyline(
+                    control_points=path_vertices,
+                    spacing=bp.WP_SPACING_LAPF
+                )
+                
+            # Add an initial heading pivot
+            for wp in self.waypoints:
+                dx = wp[0] - x
+                dy = wp[1] - y
+                if math.hypot(dx, dy) > bp.TOLERANCE_MM:
+                    self.start_heading = math.degrees(math.atan2(dy, dx))
+                    self.stage_sequence.insert(0, bp.NavStage.START_HEADING)
+                    break
         
         # Add goal heading if provided
         if self.goal_heading is not None:
@@ -94,18 +112,14 @@ class NavTask(Task):
 
         if self.handle and self.handle.is_done():
             self.handle = None
-            if self.stage == bp.NavStage.POSITION and self.path_planner == "lapf" and self.wp_lapf_idx < len(self.waypoints) - 1:
-                # Stay in bp.NavStage.POSITION
-                self.wp_lapf_idx += 1
+            self.stage_idx += 1
+            if self.stage_idx < len(self.stage_sequence):
+                self.stage = self.stage_sequence[self.stage_idx]
             else:
-                self.stage_idx += 1
-                if self.stage_idx < len(self.stage_sequence):
-                    self.stage = self.stage_sequence[self.stage_idx]
-                else:
-                    if self.delivery_segment:
-                        self.mission_data["delivery_status"] = True
-                    self._is_done = True
-                    return
+                if self.delivery_segment:
+                    self.mission_data["delivery_status"] = True
+                self._is_done = True
+                return
 
         if self.stage == bp.NavStage.START_HEADING:
             if self.handle is None:
@@ -131,22 +145,22 @@ class NavTask(Task):
                         advance_radius=bp.ADVANCE_RADIUS_MM
                     )
                 elif self.path_planner == "lapf":
-                    wp = self.waypoints[self.wp_lapf_idx]
-                    tx, ty = wp[0], wp[1]
-                    print(f"Driving (LAPF) toward: ({tx:.2f},{ty:.2f})")
-                    self.handle = self.robot.lapf_to_goal(
-                        x=tx, y=ty,
+                    print(f"Driving (LAPF) seg with {len(self.waypoints)} waypoints")
+                    self.handle = self.robot.lapf_follow_path(
+                        waypoints=self.waypoints,
                         velocity=bp.VELOCITY_MM_S*0.8,
+                        lookahead=150.0,
                         tolerance=bp.TOLERANCE_MM_LAPF,
-                        leash_length_mm=50,
-                        repulsion_range_mm=150.0, # 350.0
-                        target_speed_mm_s=bp.VELOCITY_MM_S,
-                        repulsion_gain=150, # 550.0,
+                        repulsion_range=150.0,
+                        blocking=False,
+                        max_angular_rad_s=1.0,
+                        repulsion_gain=150.0,
                         attraction_gain=1.0,
                         force_ema_alpha=0.35,
                         inflation_margin_mm=150.0,
+                        leash_length_mm=400.0,
                         leash_half_angle_deg=25.0,
-                        blocking=False
+                        advance_radius=bp.TOLERANCE_MM_LAPF * 2.0
                     )
 
         elif self.stage == bp.NavStage.HEADING:

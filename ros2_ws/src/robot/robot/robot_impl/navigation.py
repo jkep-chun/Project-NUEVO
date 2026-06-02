@@ -774,6 +774,62 @@ class NavigationMixin:
 
         return self._start_nav(target, blocking, timeout)
 
+    def lapf_follow_path(
+        self,
+        waypoints: list[tuple[float, float]],
+        velocity: float,
+        lookahead: float,
+        tolerance: float,
+        repulsion_range: float,
+        blocking: bool = True,
+        max_angular_rad_s: float = 1.0,
+        repulsion_gain: float = 800.0,
+        attraction_gain: float = 1.0,
+        force_ema_alpha: float = 0.35,
+        inflation_margin_mm: float = 200.0,
+        leash_length_mm: float = 400.0,
+        leash_half_angle_deg: float = 60.0,
+        timeout: float = None,
+        *,
+        advance_radius: float | None = None,
+    ) -> MotionHandle:
+        """
+        Follow an ordered waypoint path with leashed APF.
+
+        Obstacles come from set_obstacles() and/or set_obstacle_provider().
+        Uses a trapezoidal velocity profile over the entire path.
+        """
+        if waypoints is None or len(waypoints) == 0:
+            raise ValueError("waypoints must not be empty")
+
+        waypoints = np.atleast_2d(waypoints)
+        path_mm = [(float(x) * self._unit.value, float(y) * self._unit.value) for x, y in waypoints]
+        vel_mm            = float(velocity)        * self._unit.value
+        lookahead_mm      = float(lookahead)       * self._unit.value
+        tolerance_mm      = float(tolerance)       * self._unit.value
+        advance_radius_mm = (
+            tolerance_mm if advance_radius is None
+            else float(advance_radius) * self._unit.value
+        )
+        repulsion_range_mm = float(repulsion_range) * self._unit.value
+        max_angular        = float(max_angular_rad_s)
+        repulsion_gain     = float(repulsion_gain)
+        attraction_gain    = float(attraction_gain)
+        force_ema_alpha    = float(force_ema_alpha)
+        inflation_mm       = float(inflation_margin_mm)
+        leash_len_mm       = float(leash_length_mm)
+        leash_angle        = float(leash_half_angle_deg)
+
+        def target():
+            self._nav_follow_lapf_path(
+                path_mm, vel_mm, lookahead_mm, advance_radius_mm, tolerance_mm,
+                repulsion_range_mm, max_angular, repulsion_gain,
+                attraction_gain, force_ema_alpha, inflation_mm,
+                leash_len_mm, leash_angle
+            )
+
+        return self._start_nav(target, blocking, timeout)
+
     def is_moving(self) -> bool:
         """True if a navigation command is active."""
         with self._nav_lock:
@@ -1065,6 +1121,8 @@ class NavigationMixin:
         update_hz: float = float(DEFAULT_NAV_HZ),
     ) -> None:
         from robot.path_planner import LeashedAPFPlanner
+        from robot.fsm_helpers import burgerbot_parameters as bp
+        from robot.util import VelocityProfile
 
         tracker_lookahead_mm = max(100.0, min(leash_length_mm, 250.0))
         planner = LeashedAPFPlanner(
@@ -1082,6 +1140,9 @@ class NavigationMixin:
             tracker_lookahead_mm=tracker_lookahead_mm,
         )
         dt = 1.0 / update_hz
+        x0_mm, y0_mm, _ = self._get_pose_mm()
+        total_dist = _dist2d(x0_mm, y0_mm, goal_mm[0], goal_mm[1])
+
         fetch_radius_mm = (
             repulsion_range_mm
             + leash_length_mm
@@ -1094,10 +1155,23 @@ class NavigationMixin:
             x_mm, y_mm, _theta_rad = pose_mm
             goal_x_mm, goal_y_mm = goal_mm
 
-            if _dist2d(x_mm, y_mm, goal_x_mm, goal_y_mm) <= tolerance_mm:
+            dist_to_goal = _dist2d(x_mm, y_mm, goal_x_mm, goal_y_mm)
+            if dist_to_goal <= tolerance_mm:
                 self.stop()
                 self._set_virtual_target_world_mm(None)
                 return
+
+            dist_from_start = total_dist - dist_to_goal
+            target_v = VelocityProfile.trapezoidal(
+                dist_from_start = dist_from_start,
+                dist_to_goal = dist_to_goal,
+                max_v = max_vel_mm,
+                accel = bp.MAX_ACCEL_MM_S2,
+                decel = bp.MAX_DECEL_MM_S2,
+                min_v = max_vel_mm * 0.15
+            )
+            planner._max_linear = target_v
+            planner._target_speed = target_v * 1.2
 
             obstacle_disks = self._get_nearest_tracked_obstacle_disks_world_mm(
                 pose_mm,
@@ -1108,6 +1182,104 @@ class NavigationMixin:
             linear_mm, angular_rad_s = planner.navigate_to_goal(
                 pose_mm,
                 goal_mm,
+                obstacle_disks,
+                dt,
+            )
+            self._set_virtual_target_world_mm(planner.get_virtual_target())
+            self._send_body_velocity_mm(linear_mm, angular_rad_s)
+            if not self._sleep_with_cancel(dt):
+                break
+
+        self.stop()
+        self._set_virtual_target_world_mm(None)
+
+    def _nav_follow_lapf_path(
+        self,
+        waypoints_mm: list[tuple[float, float]],
+        max_vel_mm: float,
+        lookahead_mm: float,
+        advance_radius_mm: float,
+        tolerance_mm: float,
+        repulsion_range_mm: float,
+        max_angular_rad_s: float,
+        repulsion_gain: float,
+        attraction_gain: float,
+        force_ema_alpha: float,
+        inflation_margin_mm: float,
+        leash_length_mm: float,
+        leash_half_angle_deg: float,
+        update_hz: float = float(DEFAULT_NAV_HZ),
+    ) -> None:
+        from robot.path_planner import LeashedAPFPlanner
+        from robot.fsm_helpers import burgerbot_parameters as bp
+        from robot.util import VelocityProfile, get_path_length
+
+        tracker_lookahead_mm = max(100.0, min(leash_length_mm, 250.0))
+        planner = LeashedAPFPlanner(
+            max_linear=max_vel_mm,
+            max_angular=max_angular_rad_s,
+            target_speed=max_vel_mm,
+            repulsion_gain=repulsion_gain,
+            repulsion_range=repulsion_range_mm,
+            goal_tolerance=tolerance_mm,
+            attraction_gain=attraction_gain,
+            force_ema_alpha=force_ema_alpha,
+            leash_length_mm=leash_length_mm,
+            leash_half_angle_deg=leash_half_angle_deg,
+            inflation_margin_mm=inflation_margin_mm,
+            tracker_lookahead_mm=tracker_lookahead_mm,
+        )
+        remaining_path = list(waypoints_mm)
+        dt = 1.0 / update_hz
+
+        start_pose = self._get_pose_mm()
+        dist_to_first = _dist2d(start_pose[0], start_pose[1], remaining_path[0][0], remaining_path[0][1])
+        total_dist = dist_to_first + get_path_length(remaining_path)
+
+        fetch_radius_mm = (
+            repulsion_range_mm
+            + leash_length_mm
+            + inflation_margin_mm
+            + float(self.APF_TRACK_INPUT_MARGIN_MM)
+        )
+
+        while not self._nav_cancel.is_set():
+            pose_mm = self._get_pose_mm()
+            x_mm, y_mm, _theta_rad = pose_mm
+            remaining_path = self._advance_remaining_path(
+                remaining_path, x_mm, y_mm, advance_radius_mm
+            )
+
+            goal_x_mm, goal_y_mm = remaining_path[0]
+            dist_to_next = _dist2d(x_mm, y_mm, goal_x_mm, goal_y_mm)
+
+            if len(remaining_path) == 1 and dist_to_next <= tolerance_mm:
+                self.stop()
+                self._set_virtual_target_world_mm(None)
+                return
+
+            dist_to_goal = dist_to_next + get_path_length(remaining_path)
+            dist_from_start = total_dist - dist_to_goal
+            target_v = VelocityProfile.trapezoidal(
+                dist_from_start = dist_from_start,
+                dist_to_goal = dist_to_goal,
+                max_v = max_vel_mm,
+                accel = bp.MAX_ACCEL_MM_S2,
+                decel = bp.MAX_DECEL_MM_S2,
+                min_v = max_vel_mm * 0.15
+            )
+            planner._max_linear = target_v
+            planner._target_speed = target_v * 1.2
+
+            obstacle_disks = self._get_nearest_tracked_obstacle_disks_world_mm(
+                pose_mm,
+                fetch_radius_mm,
+                int(self.LAPF_MAX_PLANNER_TRACKS),
+            )
+
+            linear_mm, angular_rad_s = planner.navigate_to_goal(
+                pose_mm,
+                (goal_x_mm, goal_y_mm),
                 obstacle_disks,
                 dt,
             )
