@@ -1,44 +1,9 @@
 """
 User-created methods concerning robot firmware
 """
-
-from robot.hardware_map import (
-    Motor,
-    DCPidLoop,
-    LED,
-
-    INITIAL_THETA_DEG,
-    LEFT_WHEEL_DIR_INVERTED,
-    LEFT_WHEEL_MOTOR,
-    POSITION_UNIT,
-    RIGHT_WHEEL_DIR_INVERTED,
-    RIGHT_WHEEL_MOTOR,
-    SERVO_MAX_US,
-    SERVO_MIN_US,
-    WHEEL_BASE,
-    WHEEL_DIAMETER,
-
-    DEFAULT_FSM_HZ,
-
-    LIFT_STEPPER,
-    LIFT_HOME_VELOCITY,
-    GRIPPER_SERVO,
-    GRIPPER_LIMIT,
-    GRIPPER_CLOSE_DEG,
-    GRIPPER_HOME_VELOCITY,
-
-    LIDAR_FOV_DEG,
-    LIDAR_MOUNT_THETA_DEG,
-    LIDAR_MOUNT_X_MM,
-    LIDAR_MOUNT_Y_MM,
-    LIDAR_RANGE_MAX_MM,
-    LIDAR_RANGE_MIN_MM,
-
-    TAG_ID,
-    TAG_BODY_OFFSET_X_MM,
-    TAG_BODY_OFFSET_Y_MM,
-
-)
+import time
+import robot.hardware_map as hm
+import robot.fsm_helpers.burgerbot_parameters as bp
 from robot.robot import FirmwareState, Robot
 
 ENABLE_LIDAR = True
@@ -46,37 +11,37 @@ ENABLE_GPS = False
 ENABLE_VISION = True
 
 def configure_robot(robot: Robot) -> None:
-    robot.set_unit(POSITION_UNIT)
+    robot.set_unit(hm.POSITION_UNIT)
     robot.set_odometry_parameters(
-        wheel_diameter=WHEEL_DIAMETER,
-        wheel_base=WHEEL_BASE,
-        initial_theta_deg=INITIAL_THETA_DEG,
-        left_motor_id=LEFT_WHEEL_MOTOR,
-        left_motor_dir_inverted=LEFT_WHEEL_DIR_INVERTED,
-        right_motor_id=RIGHT_WHEEL_MOTOR,
-        right_motor_dir_inverted=RIGHT_WHEEL_DIR_INVERTED,
+        wheel_diameter=hm.WHEEL_DIAMETER,
+        wheel_base=hm.WHEEL_BASE,
+        initial_theta_deg=hm.INITIAL_THETA_DEG,
+        left_motor_id=hm.LEFT_WHEEL_MOTOR,
+        left_motor_dir_inverted=hm.LEFT_WHEEL_DIR_INVERTED,
+        right_motor_id=hm.RIGHT_WHEEL_MOTOR,
+        right_motor_dir_inverted=hm.RIGHT_WHEEL_DIR_INVERTED,
     )
 
     if ENABLE_LIDAR:
         robot.enable_lidar()
         robot.set_lidar_mount(
-            x_mm=LIDAR_MOUNT_X_MM,
-            y_mm=LIDAR_MOUNT_Y_MM,
-            theta_deg=LIDAR_MOUNT_THETA_DEG,
+            x_mm=hm.LIDAR_MOUNT_X_MM,
+            y_mm=hm.LIDAR_MOUNT_Y_MM,
+            theta_deg=hm.LIDAR_MOUNT_THETA_DEG,
         )
         robot.set_lidar_filter(
-            range_min_mm=LIDAR_RANGE_MIN_MM,
-            range_max_mm=LIDAR_RANGE_MAX_MM,
-            fov_deg=LIDAR_FOV_DEG,
+            range_min_mm=hm.LIDAR_RANGE_MIN_MM,
+            range_max_mm=hm.LIDAR_RANGE_MAX_MM,
+            fov_deg=hm.LIDAR_FOV_DEG,
         )
         robot.start_lidar_world_publisher()
         print("[sensor] lidar enabled — subscribing to /scan")
 
     if ENABLE_GPS:
         robot.enable_gps()
-        robot.set_tracked_tag_id(TAG_ID)
-        robot.set_tag_body_offset(TAG_BODY_OFFSET_X_MM, TAG_BODY_OFFSET_Y_MM)
-        print(f"[sensor] GPS enabled — tracking ArUco tag {TAG_ID}")
+        robot.set_tracked_tag_id(hm.TAG_ID)
+        robot.set_tag_body_offset(hm.TAG_BODY_OFFSET_X_MM, hm.TAG_BODY_OFFSET_Y_MM)
+        print(f"[sensor] GPS enabled — tracking ArUco tag {hm.TAG_ID}")
 
     if ENABLE_VISION:
         robot.enable_vision()
@@ -88,8 +53,9 @@ def start_robot(robot: Robot) -> None:
     if current in (FirmwareState.ESTOP, FirmwareState.ERROR):
         robot.reset_estop()
     robot.set_state(FirmwareState.RUNNING)
-    robot.set_pid_gains(Motor.DC_M1, DCPidLoop.VELOCITY, 0.17, 0.09, 0.0)
-    robot.set_pid_gains(Motor.DC_M2, DCPidLoop.VELOCITY, 0.17, 0.09, 0.0)
+    kp, ki, kd = hm.WHEEL_VEL_PID
+    robot.set_pid_gains(hm.Motor.DC_M1, hm.DCPidLoop.VELOCITY, kp, ki, kd)
+    robot.set_pid_gains(hm.Motor.DC_M2, hm.DCPidLoop.VELOCITY, kp, ki, kd)
 
 
 def reset_mission_pose(robot: Robot) -> None:
@@ -102,13 +68,13 @@ def reset_mission_pose(robot: Robot) -> None:
 
 
 def show_idle_leds(robot: Robot) -> None:
-    robot.set_led(LED.ORANGE, 200)
-    robot.set_led(LED.GREEN, 0)
+    robot.set_led(hm.LED.ORANGE, 200)
+    robot.set_led(hm.LED.GREEN, 0)
 
 
 def show_running_leds(robot: Robot) -> None:
-    robot.set_led(LED.ORANGE, 0)
-    robot.set_led(LED.GREEN, 200)
+    robot.set_led(hm.LED.ORANGE, 0)
+    robot.set_led(hm.LED.GREEN, 200)
 
 
 def cancel_motion(robot: Robot, handle) -> None:
@@ -118,18 +84,142 @@ def cancel_motion(robot: Robot, handle) -> None:
     robot.stop()
 
 
-class StepHomingHandle:
-    """
-    Handle to track non-blocking homing progress.
-    Mimics the interface of MotionHandle.
-    """
-    def __init__(self, robot: Robot, stepper_id: int):
-        self._robot = robot
-        self._id = stepper_id
-        self._saw_active = False
+def get_servo_angle(robot: Robot, servo_id: int) -> float:
+    """Helper to fetch current servo angle from state (0..180)."""
+    state = robot.get_servo_state()
+    if not state:
+        return 0.0
+    for channel in state.channels:
+        if channel.channel_number == servo_id:
+            pulse_us = channel.pulse_us
+            if pulse_us < hm.SERVO_MIN_US:
+                return 0.0
+            return (pulse_us - hm.SERVO_MIN_US) * 180.0 / (hm.SERVO_MAX_US - hm.SERVO_MIN_US)
+    return 0.0
+
+
+class FsmHandle:
+    """Base class for non-blocking FSM handles."""
+    def __init__(self):
+        self._finished = False
 
     def is_done(self) -> bool:
-        """Returns True once homing starts and then returns to IDLE."""
+        return self._finished
+
+    def cancel(self) -> None:
+        self._finished = True
+
+    def wait(self, timeout: float = None) -> bool:
+        """Stub for polling-based handles."""
+        return self._finished
+
+
+class ApproachHandle(FsmHandle):
+    """
+    Handle to track non-blocking approach to ingredient table.
+    Completion triggered by a limit switch
+    """
+    def __init__(self, robot: Robot, limit_id: int):
+        super().__init__()
+        self._robot = robot
+        self._limit_id = limit_id
+        self._drive_on = False
+
+    def is_done(self) -> bool:
+        if self._finished:
+            return True
+        if self._robot.get_limit(self._limit_id):
+            print(f"[APPROACH] — Table reached: limit {self._limit_id} triggered.")
+            self._robot.stop()
+            self._finished = True
+        elif not self._drive_on:
+            self._robot.set_velocity(bp.APPROACH_VEL_MM_S, 0.0)
+            self._drive_on = True
+        return self._finished
+
+    def cancel(self) -> None:
+        self._robot.stop()
+        super().cancel()
+
+
+class ServoHandle(FsmHandle):
+    """
+    Handle to track non-blocking motion progress.
+    Mimics the interface of MotionHandle.
+    """
+    def __init__(self, robot: Robot, servo_id: int, goal_angle: float, speed: float):
+        super().__init__()
+        self._robot = robot
+        self._servo_id = servo_id
+        self._speed = speed
+        self._goal_angle = max(0.0, min(180.0, goal_angle))
+        self._time_last_cmd = time.monotonic()
+        self._hz_cmd = 10
+        
+        self._current_angle = get_servo_angle(robot, servo_id)
+        
+        # Determine direction
+        if self._goal_angle > self._current_angle:
+            self._sign = 1
+        elif self._goal_angle < self._current_angle:
+            self._sign = -1
+        else:
+            self._sign = 0
+            self._finished = True
+
+        if not self._finished:
+            self._robot.set_servo(self._servo_id, self._current_angle)
+
+    def is_done(self) -> bool:
+        """Returns True once goal angle deg reached."""
+        if self._finished:
+            return True
+            
+        now = time.monotonic()
+        dt = now - self._time_last_cmd
+        if dt >= 1.0/self._hz_cmd:
+            step = self._sign * self._speed * dt
+            self._current_angle += step
+            self._time_last_cmd = now
+            
+            # Check for completion/overshoot
+            if (self._sign > 0 and self._current_angle >= self._goal_angle) or \
+               (self._sign < 0 and self._current_angle <= self._goal_angle) or \
+               (self._sign == 0):
+                self._current_angle = self._goal_angle
+                self._finished = True
+                
+            self._robot.set_servo(self._servo_id, self._current_angle)
+            
+        return self._finished
+
+
+class StepMoveHandle(FsmHandle):
+    """
+    Handle to track non-blocking stepper motion or homing progress.
+    Mimics the interface of MotionHandle.
+    """
+    def __init__(self, robot: Robot, stepper_id: int, disable_on_done: bool = True, target_position: int | None = None):
+        super().__init__()
+        self._robot = robot
+        self._id = stepper_id
+        self._disable_on_done = disable_on_done
+        self._saw_active = False
+
+        if target_position is not None:
+            state = self._robot.get_step_state()
+            if state is not None:
+                current_pos = state.steppers[self._id - 1].count
+                if current_pos == target_position:
+                    if self._disable_on_done:
+                        self._robot.step_disable(self._id)
+                    self._finished = True
+
+    def is_done(self) -> bool:
+        """Returns True once motion starts and then returns to IDLE."""
+        if self._finished:
+            return True
+
         state = self._robot.get_step_state()
         if state is None:
             return False
@@ -143,63 +233,94 @@ class StepHomingHandle:
             
         # 2. Return True only if it was moving and is now IDLE
         if self._saw_active and motion_state == 0:
-            self._robot.step_disable(self._id) # Safe to disable now
-            return True
-        return False    
-   
+            if self._disable_on_done:
+                self._robot.step_disable(self._id) # Safe to disable now
+            self._finished = True
+        return self._finished
 
-class ServoHomingHandle:
+    def cancel(self) -> None:
+        """Abort motion."""
+        self._robot.step_disable(self._id)
+        super().cancel()
+
+
+class StepHomingHandle(StepMoveHandle):
+    """
+    Handle to track non-blocking stepper homing progress.
+    Completion triggered by a limit switch OR returning to IDLE.
+    """
+    def __init__(self, robot: Robot, stepper_id: int, limit_id: int, disable_on_done: bool = True):
+        super().__init__(robot, stepper_id, disable_on_done, target_position=None)
+        self._limit_id = limit_id
+
+    def is_done(self) -> bool:
+        """Returns True once limit switch is triggered or motion returns to IDLE."""
+        if self._finished:
+            print(f"[HOMING] — Stepper homing complete.")
+            return True
+
+        # Check limit switch first. If already home (or hit during motion), we are done.
+        if self._robot.get_limit(self._limit_id) or self._finished:
+            if self._disable_on_done:
+                self._robot.step_disable(self._id)
+            self._finished = True
+            print(f"[HOMING] — Stepper homing complete: limit {self._limit_id} triggered.")
+            return True
+            
+        return super().is_done()
+
+
+class ServoHomingHandle(ServoHandle):
     """
     Handle to track non-blocking homing progress.
     Mimics the interface of MotionHandle.
     """
-    def __init__(self, robot: Robot, servo_id: int, limit_switch_id: int, home_velocity: float):
-        self._robot = robot
-        self._servo_id = servo_id
-        self._limit_switch_id = limit_switch_id
-        self._home_velocity = home_velocity
-        self._last_command = None
-
-        # Try to initialize current angle from existing state.
-        # If pulse_us is 0, it means the servo is disabled or uninitialized; 
-        # fall back to GRIPPER_CLOSE_DEG.
-        state = self._robot.get_servo_state()
-        pulse_us = 0
-        if state:
-            for channel in state.channels:
-                if channel.channel_number == self._servo_id:
-                    pulse_us = channel.pulse_us
-                    break
-
-        if pulse_us >= SERVO_MIN_US:
-            self._current_angle = (pulse_us - SERVO_MIN_US) * 180.0 / (SERVO_MAX_US - SERVO_MIN_US)
-        else:
-            self._current_angle = GRIPPER_CLOSE_DEG
-
-        # Command initial position to start the sequence
-        self._robot.set_servo(self._servo_id, self._current_angle)
-        self._last_command = self._current_angle
+    def __init__(self, robot: Robot, servo_id: int, limit_id: int, home_velocity: float):
+        # We home to 0.0 deg
+        super().__init__(robot, servo_id, goal_angle=0.0, speed=home_velocity)
+        self._limit_id = limit_id
+        
+        # Override frequency for homing if desired (optional, 10Hz is fine)
+        self._hz_cmd = hm.DEFAULT_FSM_HZ # Use faster polling for homing accuracy
+        
+        # Logic bug fix: if current angle is 0.0 (likely uninitialized), 
+        # ServoHandle would set finished=True immediately.
+        # We want to force it to move until it hits the limit switch.
+        if self._current_angle == 0.0 and not self._robot.get_limit(self._limit_id):
+            self._current_angle = hm.GRIPPER_HOME_DEG
+            self._sign = -1
+            self._finished = False
+            self._robot.set_servo(self._servo_id, self._current_angle)
 
     def is_done(self) -> bool:
         """Returns True once limit switch is triggered or 0 deg reached."""
-        if self._robot.get_limit(self._limit_switch_id):
-            print(f"[HOMING] — Gripper homing complete: limit {self._limit_switch_id} triggered.")
+        if self._finished:
             return True
 
-        if self._current_angle <= 0:
-            print("[HOMING] — Gripper homing complete: 0 deg reached.")
-            self._robot.set_servo(self._servo_id, 0.0)
+        if self._robot.get_limit(self._limit_id):
+            print(f"[HOMING] — Gripper homing complete: limit {self._limit_id} triggered.")
+            self._finished = True
             return True
 
-        # Move one step towards 0
-        self._current_angle -= self._home_velocity/DEFAULT_FSM_HZ
-        current_command = int(self._current_angle)
-        if self._last_command != current_command:
-            print(f"[HOMING] — Commanding {current_command} deg.")
-            self._robot.set_servo(self._servo_id, current_command)
-            self._last_command = current_command
-            
-        return False
+        # Leverage ServoHandle's velocity-stepped movement
+        was_finished = self._finished
+        done = super().is_done()
+        
+        if done and not was_finished:
+             print("[HOMING] — Gripper homing complete: 0 deg reached.")
+             
+        return done
+
+
+def move_lift(robot: Robot, position: float, move_type: int, disable_on_done: bool = False) -> StepMoveHandle:
+    """
+    Starts a non-blocking stepper move for the lift.
+    Returns a StepMoveHandle to poll for completion.
+    """
+    robot.step_move(hm.LIFT_STEPPER_ID, position, move_type, blocking=False)
+    
+    target_pos = int(position) if move_type == hm.StepMoveType.ABSOLUTE else None
+    return StepMoveHandle(robot, hm.LIFT_STEPPER_ID, disable_on_done=disable_on_done, target_position=target_pos)
 
 
 def home_lift(robot: Robot) -> StepHomingHandle:
@@ -208,21 +329,50 @@ def home_lift(robot: Robot) -> StepHomingHandle:
     Returns a StepHomingHandle to poll for completion.
     """
     print("[HOMING] — Starting lift homing...")
-    robot.step_enable(LIFT_STEPPER)
+    robot.step_enable(hm.LIFT_STEPPER_ID)
     robot.step_home(
-        LIFT_STEPPER,
+        hm.LIFT_STEPPER_ID,
         direction=1,
-        home_velocity=LIFT_HOME_VELOCITY,
+        home_velocity=hm.LIFT_HOME_VELOCITY,
         blocking=False
     )
-    return StepHomingHandle(robot, LIFT_STEPPER)
+    return StepHomingHandle(robot, hm.LIFT_STEPPER_ID, limit_id=hm.Limit.LIM_1, disable_on_done=True)
 
 
 def home_gripper(robot: Robot) -> ServoHomingHandle:
     """
-    Starts the non-blocking homing sequence for the grip.
+    Starts the non-blocking homing sequence for the gripper.
     Returns a ServoHomingHandle to poll for completion.
     """
     print("[HOMING] — Starting gripper homing...")
-    robot.enable_servo(GRIPPER_SERVO)
-    return ServoHomingHandle(robot, GRIPPER_SERVO, GRIPPER_LIMIT, GRIPPER_HOME_VELOCITY)
+    robot.enable_servo(hm.GRIPPER_SERVO_ID)
+    return ServoHomingHandle(
+        robot=robot,
+        servo_id=hm.GRIPPER_SERVO_ID,
+        limit_id=hm.GRIPPER_LIMIT,
+        home_velocity=hm.GRIPPER_HOME_SPEED
+    )
+
+
+def set_gripper(robot: Robot, angle: float) -> ServoHandle:
+    """
+    Starts the non-blocking, velocity-limited gripper motion
+    Returns a ServoHandle to poll for completion.
+    """
+    return ServoHandle(
+        robot=robot,
+        servo_id=hm.GRIPPER_SERVO_ID,
+        goal_angle=angle,
+        speed=hm.GRIPPER_SPEED
+    )
+
+
+def approach_ingredient_table(robot: Robot) -> ApproachHandle:
+    """
+    Starts the non-blocking approach to the ingredient table.
+    Returns an ApproachHandle to poll for completion.
+    """
+    return ApproachHandle(
+        robot=robot,
+        limit_id=hm.TABLE_LIMIT
+    )

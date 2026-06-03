@@ -1,5 +1,5 @@
 from __future__ import annotations
-import time, sqlite3, os, math
+import time, sqlite3, os
 from datetime import datetime
 
 from robot.robot import Robot
@@ -41,6 +41,7 @@ class MissionFSM(RobotFSM):
         self.add_transition("INIT", "to_homing", "HOMING")
         self.add_transition("HOMING", "to_init", "INIT")
         self.add_transition("EXECUTE", "next", "EXECUTE", action=self._advance_task)
+        self.add_transition("EXECUTE", "e-stop", "INIT")
         self.add_transition("EXECUTE", "to_done", "DONE")
         self.add_transition("EXECUTE", "error", "INIT")
         self.add_transition("DONE", "to_init", "INIT")
@@ -161,6 +162,21 @@ class MissionFSM(RobotFSM):
                 self.trigger("to_init")
         
         elif state_str == "EXECUTE":
+            # BTN_1 skip check
+            if self.robot.was_button_pressed(Button.BTN_1):
+                if self.current_task:
+                    print(f"[{state_str}] Skipping task {self.task_idx} via BTN_1")
+                    self.current_task.cancel()
+                self.trigger("next")
+                return
+
+            # E-STOP check
+            if self.robot.was_button_pressed(Button.BTN_2):
+                print(f"[{state_str}] Emergency stop via BTN_2")
+                self.trigger("e-stop")
+                return
+
+            # Proceed normally
             if self.current_task:
                 self.current_task.update()
                 if self.current_task.is_done():
