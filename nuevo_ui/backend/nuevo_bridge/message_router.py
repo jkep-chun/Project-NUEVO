@@ -326,6 +326,9 @@ class MessageRouter:
             "kd": float(decoded["kd"]),
             "maxOutput": float(decoded["maxOutput"]),
             "maxIntegral": float(decoded["maxIntegral"]),
+            "deadbandStatic": float(decoded["deadbandStatic"]),
+            "deadbandKinetic": float(decoded["deadbandKinetic"]),
+            "stopThreshold": float(decoded["stopThreshold"]),
         })
         self._latest_ws_messages[f"dc_pid_rsp:{motor_id}:{loop_type}"] = message
         return [message]
@@ -653,6 +656,9 @@ class MessageRouter:
         payload.kd = float(data.get("kd", 0.0))
         payload.maxOutput = float(data.get("maxOutput", 255.0))
         payload.maxIntegral = float(data.get("maxIntegral", 255.0))
+        payload.deadbandStatic = float(data.get("deadbandStatic", 0.0))
+        payload.deadbandKinetic = float(data.get("deadbandKinetic", 0.0))
+        payload.stopThreshold = float(data.get("stopThreshold", 0.0))
         return payload
 
     def _encode_step_enable(self, data: dict) -> Optional[ctypes.Structure]:

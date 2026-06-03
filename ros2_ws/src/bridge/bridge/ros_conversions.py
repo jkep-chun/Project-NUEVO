@@ -131,6 +131,9 @@ def to_dc_pid(data: dict, stamp: Time) -> DCPid:
     msg.kd = float(data["kd"])
     msg.max_output = float(data["maxOutput"])
     msg.max_integral = float(data["maxIntegral"])
+    msg.deadband_static = float(data.get("deadbandStatic", 0.0))
+    msg.deadband_kinetic = float(data.get("deadbandKinetic", 0.0))
+    msg.stop_threshold = float(data.get("stopThreshold", 0.0))
     return msg
 
 

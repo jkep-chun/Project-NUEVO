@@ -543,6 +543,8 @@ export const useRobotStore = create<RobotState>((set) => ({
           const prev = nextMotors[idx]
           if (prev?.status) {
             const status = { ...prev.status }
+            status.deadbandStatic = incoming.deadbandStatic
+            status.deadbandKinetic = incoming.deadbandKinetic
             if (incoming.loopType === 0) {
               status.posKp = incoming.kp
               status.posKi = incoming.ki
@@ -588,6 +590,9 @@ export const useRobotStore = create<RobotState>((set) => ({
               velKp: velPid?.kp ?? 0,
               velKi: velPid?.ki ?? 0,
               velKd: velPid?.kd ?? 0,
+              deadbandStatic: posPid?.deadbandStatic ?? velPid?.deadbandStatic ?? 0,
+              deadbandKinetic: posPid?.deadbandKinetic ?? velPid?.deadbandKinetic ?? 0,
+              stopThreshold: posPid?.stopThreshold ?? velPid?.stopThreshold ?? 0,
             }
 
             const prev = newDCMotors[idx]

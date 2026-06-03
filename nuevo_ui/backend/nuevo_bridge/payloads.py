@@ -296,6 +296,9 @@ class PayloadDCPidRsp(ctypes.Structure):
         ("kd", ctypes.c_float),
         ("maxOutput", ctypes.c_float),
         ("maxIntegral", ctypes.c_float),
+        ("deadbandStatic", ctypes.c_float),
+        ("deadbandKinetic", ctypes.c_float),
+        ("stopThreshold", ctypes.c_float),
     ]
 
 
@@ -573,7 +576,7 @@ def verify_payload_sizes() -> None:
         PayloadSysState: 12,
         PayloadSysCmd: 4,
         PayloadSysInfoReq: 4,
-        PayloadSysInfoRsp: 20,
+        PayloadSysInfoRsp: 24,
         PayloadSysConfigReq: 4,
         PayloadSysConfigRsp: 8,
         PayloadSysConfigSet: 8,
@@ -591,7 +594,7 @@ def verify_payload_sizes() -> None:
         DCMotorState: 22,
         PayloadDCStateAll: 92,
         PayloadDCPidReq: 4,
-        PayloadDCPidRsp: 24,
+        PayloadDCPidRsp: 36,
         PayloadStepEnable: 4,
         PayloadStepMove: 8,
         PayloadStepHome: 12,

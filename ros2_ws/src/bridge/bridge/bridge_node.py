@@ -251,6 +251,9 @@ class BridgeNode(Node):
             "kd": float(msg.kd),
             "maxOutput": float(msg.max_output),
             "maxIntegral": float(msg.max_integral),
+            "deadbandStatic": float(msg.deadband_static),
+            "deadbandKinetic": float(msg.deadband_kinetic),
+            "stopThreshold": float(msg.stop_threshold),
         })
 
     def _on_step_enable(self, msg: StepEnable) -> None:

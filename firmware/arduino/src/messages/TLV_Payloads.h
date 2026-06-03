@@ -327,8 +327,11 @@ struct PayloadDCPidRsp {
     float   kd;
     float   maxOutput;
     float   maxIntegral;
+    float   deadbandStatic;
+    float   deadbandKinetic;
+    float   stopThreshold;
 };
-// 24 bytes
+// 36 bytes
 
 using PayloadDCPidSet = PayloadDCPidRsp;
 
@@ -624,8 +627,8 @@ STATIC_ASSERT_SIZE(PayloadDCHome, 8);
 STATIC_ASSERT_SIZE(DCMotorState, 22);
 STATIC_ASSERT_SIZE(PayloadDCStateAll, 92);
 STATIC_ASSERT_SIZE(PayloadDCPidReq, 4);
-STATIC_ASSERT_SIZE(PayloadDCPidRsp, 24);
-STATIC_ASSERT_SIZE(PayloadDCPidSet, 24);
+STATIC_ASSERT_SIZE(PayloadDCPidRsp, 36);
+STATIC_ASSERT_SIZE(PayloadDCPidSet, 36);
 
 STATIC_ASSERT_SIZE(PayloadStepEnable, 4);
 STATIC_ASSERT_SIZE(PayloadStepMove, 8);

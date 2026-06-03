@@ -139,9 +139,12 @@ DCMotor::DCMotor()
     , targetVelocity_(0.0f)
     , directPwm_(0)
     , pwmOutput_(0)
-    , currentMa_(-1)
-    , maPerVolt_(1000.0f)
-    , encoder_(nullptr)
+    ,currentMa_(-1)
+    ,maPerVolt_(1000.0f)
+    ,deadbandStatic_(85.0f)
+    ,deadbandKinetic_(5.0f)
+    ,stopThreshold_(5.0f)
+    ,encoder_(nullptr)
     , targetVelocityQ16_(0)
     , positionVelLimitQ16_(VEL_LIMIT_Q16)
     , feedbackVelocityQ16_(0)
@@ -348,6 +351,24 @@ void DCMotor::setVelocityPID(float kp, float ki, float kd) {
     }
 }
 
+void DCMotor::setDeadbandStatic(float db) {
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        deadbandStatic_ = db;
+    }
+}
+
+void DCMotor::setDeadbandKinetic(float db) {
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        deadbandKinetic_ = db;
+    }
+}
+
+void DCMotor::setStopThreshold(float threshold) {
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        stopThreshold_ = threshold;
+    }
+}
+
 void DCMotor::setDirectPWM(int16_t pwm) {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
         directPwm_ = pwm;
@@ -472,6 +493,7 @@ void DCMotor::service() {
     }
 
     int16_t nextPwm = 0;
+    int32_t currentVelocitySetpointQ16 = 0;
 
     if (mode == DC_MODE_HOMING) {
         if (isLimitTriggered()) {
@@ -506,37 +528,51 @@ void DCMotor::service() {
     } else if (mode == DC_MODE_PWM) {
         nextPwm = directPwm;
     } else if (mode != DC_MODE_DISABLED && encoder_) {
-        int32_t velocitySetpointQ16 = targetVelocityQ16;
+        currentVelocitySetpointQ16 = targetVelocityQ16;
 
         if (mode == DC_MODE_POSITION) {
             int32_t posErrQ16 = (targetPosition - currentPosition) << 16;
-            velocitySetpointQ16 = pidStepQ16(posIAccQ16_, posPrevErrQ16_,
-                                             posKpQ16_, posKiDtQ16_, posKdDivDtQ16_,
-                                             posErrQ16,
-                                             -positionVelLimitQ16,
-                                             positionVelLimitQ16);
+            currentVelocitySetpointQ16 = pidStepQ16(posIAccQ16_, posPrevErrQ16_,
+                                                   posKpQ16_, posKiDtQ16_, posKdDivDtQ16_,
+                                                   posErrQ16,
+                                                   -positionVelLimitQ16,
+                                                   positionVelLimitQ16);
         }
 
-        int32_t velErrQ16 = velocitySetpointQ16 - feedbackVelocityQ16;
-        int32_t pwmQ16 = pidStepQ16(velIAccQ16_, velPrevErrQ16_,
-                                    velKpQ16_, velKiDtQ16_, velKdDivDtQ16_,
-                                    velErrQ16, -PWM_LIMIT_Q16, PWM_LIMIT_Q16);
-        nextPwm = (int16_t)(pwmQ16 >> 16);
+        // Point 3: Target == 0, Current < Stop Threshold: Zero out integrator and cut power
+        if (currentVelocitySetpointQ16 == 0 && abs(feedbackVelocityQ16) < floatToQ16(stopThreshold_)) {
+            velIAccQ16_ = 0;
+            velPrevErrQ16_ = 0;
+            nextPwm = 0;
+        } else {
+            int32_t velErrQ16 = currentVelocitySetpointQ16 - feedbackVelocityQ16;
+            int32_t pwmQ16 = pidStepQ16(velIAccQ16_, velPrevErrQ16_,
+                                        velKpQ16_, velKiDtQ16_, velKdDivDtQ16_,
+                                        velErrQ16, -PWM_LIMIT_Q16, PWM_LIMIT_Q16);
+            nextPwm = (int16_t)(pwmQ16 >> 16);
+
+            if (nextPwm != 0) {
+                if (feedbackVelocityQ16 == 0) {
+                    // Point 1: Target != 0, Current == 0: Instantly add static deadband to break stiction
+                    const int16_t db = (int16_t)deadbandStatic_;
+                    if (nextPwm > 0) nextPwm += db;
+                    else nextPwm -= db;
+                } else {
+                    // Point 2: Target != 0, Current != 0: Still add kinetic deadband threshold
+                    const int16_t db = (int16_t)deadbandKinetic_;
+                    if (nextPwm > 0) nextPwm += db;
+                    else nextPwm -= db;
+                }
+            }
+
+            // Clamp final PWM
+            if (nextPwm > 255) nextPwm = 255;
+            else if (nextPwm < -255) nextPwm = -255;
+        }
     }
 
     uint8_t nextDrive = 0;
     uint16_t nextDuty = 0;
-
-    // Jacob Chun: Adding deadband rejection
-    if (nextPwm != 0) {
-        const int16_t deadband = 85; // Tune this
-        if (nextPwm > 0) nextPwm += deadband;
-        else nextPwm -= deadband;
-
-        // Clamp
-        if (nextPwm > 255) nextPwm = 255;
-        else if (nextPwm < -255) nextPwm = -255;
-    }
 
     prepareOutput(nextPwm, nextDrive, nextDuty);
 
