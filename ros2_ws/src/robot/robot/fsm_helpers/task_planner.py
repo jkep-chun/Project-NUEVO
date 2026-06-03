@@ -5,9 +5,7 @@ User-defined mission tasks. Set MODE below
 from robot.fsm_helpers import course_parameters as cp
 from robot.fsm_helpers.course_parameters import SQ
 
-start_pose = (0, 0, 90)
-
-MODE = "feedforward"
+MODE = "manip_nav"
 
 if MODE == "RANDOM":
     tasks = [{
@@ -129,6 +127,17 @@ elif MODE == "helpers":
 # =============================================================================
 # Multiple tasks
 # =============================================================================
+
+elif MODE == "manip_nav":
+    tasks = [
+        {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": cp.WP_BURGER_BUN_1},
+        {"state": "MANIP", "command": "pick", "ingredient": "bun"},
+        {"state": "NAV", "path_planner": "pp", "vision": "burger_patty", "waypoints": cp.WP_BURGER_PATTY},
+        {"state": "MANIP", "command": "pick", "ingredient": "patty"},
+        {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": cp.WP_BURGER_BUN_2},
+        {"state": "MANIP", "command": "pick", "ingredient": "bun"},
+        {"state": "NAV", "path_planner": "pp", "waypoints": [cp.WP1, cp.WP2, cp.WP3, cp.WP4]},
+    ]
 
 elif MODE == "LAPF_TO_IDENT":
     tasks = [{
