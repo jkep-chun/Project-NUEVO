@@ -53,51 +53,51 @@ class NavTask(Task):
         self._delivery_segment = delivery_segment
 
         self._is_done = False
-        self.wp_lapf_idx = 0
-        self.handle = None
-        self.start_heading = None
-        self._start_traj_idx = len(self.robot._fused_traj)
+        self._wp_lapf_idx = 0
+        self._handle = None
+        self._start_heading = None
+        self._start_traj_idx = len(self._robot._fused_traj)
 
-        self.stage_idx = 0
-        self.stage_sequence = []
-        self.waypoints = list(self.vertices) # Fallback to original vertices
+        self._stage_idx = 0
+        self._stage_sequence = []
+        self._waypoints = list(self._vertices) # Fallback to original vertices
 
-        if self.vertices:
-            self.stage_sequence.append(bp.NavStage.POSITION)
+        if self._vertices:
+            self._stage_sequence.append(bp.NavStage.POSITION)
             # Remove vertices if within TOLERANCE_MM of initial pose
-            x, y, _ = self.robot.get_pose()
-            while self.vertices:
-                v = self.vertices[0]
+            x, y, _ = self._robot.get_pose()
+            while self._vertices:
+                v = self._vertices[0]
                 dx = v[0] - x
                 dy = v[1] - y
                 if math.hypot(dx, dy) < bp.TOLERANCE_MM:
-                    self.vertices.pop(0)
+                    self._vertices.pop(0)
                 else:
                     break
-            path_vertices = [(x, y)] + self.vertices
+            path_vertices = [(x, y)] + self._vertices
 
-            if self.path_planner == "pp":
+            if self._path_planner == "pp":
                 # Make a dense rounded path if in pure pursuit
-                self.waypoints = generate_open_rounded_path(
+                self._waypoints = generate_open_rounded_path(
                     vertices=path_vertices,
                     R=bp.TURN_RADIUS,
                     ds=bp.WP_SPACING
                 )
 
-            elif self.path_planner == "lapf":
+            elif self._path_planner == "lapf":
                 # Make denser polyline path if in lapf
-                self.waypoints = densify_polyline(
+                self._waypoints = densify_polyline(
                     control_points=path_vertices,
                     spacing=bp.WP_SPACING_LAPF
                 )
                 
             # Add an initial heading pivot
-            for wp in self.waypoints:
+            for wp in self._waypoints:
                 dx = wp[0] - x
                 dy = wp[1] - y
                 if math.hypot(dx, dy) > bp.TOLERANCE_MM:
-                    self.start_heading = math.degrees(math.atan2(dy, dx))
-                    self.stage_sequence.insert(0, bp.NavStage.START_HEADING)
+                    self._start_heading = math.degrees(math.atan2(dy, dx))
+                    self._stage_sequence.insert(0, bp.NavStage.START_HEADING)
                     break
         
         # Add goal heading if provided
@@ -113,14 +113,14 @@ class NavTask(Task):
 
     def update(self):
 
-        if self.handle and self.handle.is_done():
-            self.handle = None
-            self.stage_idx += 1
-            if self.stage_idx < len(self.stage_sequence):
-                self.stage = self.stage_sequence[self.stage_idx]
+        if self._handle and self._handle.is_done():
+            self._handle = None
+            self._stage_idx += 1
+            if self._stage_idx < len(self._stage_sequence):
+                self._stage = self._stage_sequence[self._stage_idx]
             else:
-                if self.delivery_segment:
-                    self.mission_data["delivery_status"] = True
+                if self._delivery_segment:
+                    self._mission_data["delivery_status"] = True
                 self._is_done = True
                 return
 
@@ -147,10 +147,10 @@ class NavTask(Task):
                         max_angular_rad_s=1.0,
                         advance_radius=bp.ADVANCE_RADIUS_MM
                     )
-                elif self.path_planner == "lapf":
-                    print(f"Driving (LAPF) seg with {len(self.waypoints)} waypoints")
-                    self.handle = self.robot.lapf_follow_path(
-                        waypoints=self.waypoints,
+                elif self._path_planner == "lapf":
+                    print(f"Driving (LAPF) seg with {len(self._waypoints)} waypoints")
+                    self._handle = self._robot.lapf_follow_path(
+                        waypoints=self._waypoints,
                         velocity=bp.VELOCITY_LAPF,
                         max_angular_rad_s=bp.ANGULAR_RAD_S_LAPF,
                         tolerance=bp.TOLERANCE_LAPF,
