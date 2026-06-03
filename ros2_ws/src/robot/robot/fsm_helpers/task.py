@@ -321,14 +321,23 @@ class ManipTask(Task):
     def __init__(self, robot, mission_data, params: dict):
         super().__init__(robot, mission_data)
         self._is_done = False
-        cmd = params.get("cmd")
-        if cmd == "pick":
+        
+        command = params.get("command")
+        if command == "pick":
             self._sequence = bp.PICK_SEQUENCE
-        elif cmd == "place":
+        elif command == "place":
             self._sequence = bp.PLACE_SEQUENCE
         else:
             self._sequence = []
             self._is_done = True
+
+        ingredient = params.get("ingredient")
+        if ingredient == "bun":
+            self._level_height = hm.LIFT_EXTEND_STEPS_BUN
+            self._close_deg = hm.GRIPPER_CLOSE_DEG_BUN
+        elif ingredient == "patty":
+            self._level_height = hm.LIFT_EXTEND_STEPS_PATTY
+            self._close_deg = hm.GRIPPER_CLOSE_DEG_PATTY
         
         self._idx = 0
         self._handle = None
@@ -354,7 +363,7 @@ class ManipTask(Task):
             if stage == bp.ManipStage.LEVEL:
                 self._handle = fh.move_lift(
                     robot=self._robot,
-                    position=hm.LIFT_EXTEND_STEPS,
+                    position=self._level_height,
                     move_type=hm.StepMoveType.ABSOLUTE,
                     disable_on_done=False
                 )
@@ -366,18 +375,18 @@ class ManipTask(Task):
             elif stage == bp.ManipStage.CLOSE:
                 self._handle = fh.set_gripper(
                     robot=self._robot,
-                    angle=hm.GRIPPER_CLOSE_DEG
+                    angle=self._close_deg
                 )
             elif stage == bp.ManipStage.FORWARD:
                 self._handle = fh.approach_ingredient_table(self._robot)
             elif stage == bp.ManipStage.RETREAT:
                 # TODO: Fix with production code (HIGH)
-                self._handle = self._robot.move_backward(distance=100.0, velocity=bp.VELOCITY_MM_S, tolerance=bp.TOLERANCE_MM, blocking=False)
+                self._handle = self._robot.move_backward(distance=200.0, velocity=bp.VELOCITY_MM_S, tolerance=bp.TOLERANCE_MM, blocking=False)
             elif stage == bp.ManipStage.LOWER:
                 self._handle = fh.move_lift(
                     robot=self._robot,
                     position=hm.LIFT_LOWER_STEPS,
-                    move_type=hm.StepMoveType.RELATIVE,
+                    move_type=hm.StepMoveType.ABSOLUTE,
                     disable_on_done=False
                 )
             elif stage == bp.ManipStage.RAISE:
