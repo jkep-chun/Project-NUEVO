@@ -148,19 +148,20 @@ class NavTask(Task):
                     print(f"Driving (LAPF) seg with {len(self.waypoints)} waypoints")
                     self.handle = self.robot.lapf_follow_path(
                         waypoints=self.waypoints,
-                        velocity=bp.VELOCITY_MM_S*0.8,
-                        lookahead=150.0,
-                        tolerance=bp.TOLERANCE_MM_LAPF,
-                        repulsion_range=150.0,
+                        velocity=bp.VELOCITY_LAPF,
+                        max_angular_rad_s=bp.ANGULAR_RAD_S_LAPF,
+                        tolerance=bp.TOLERANCE_LAPF,
+                        repulsion_range=bp.REPULSION_RANGE_LAPF,
+                        repulsion_gain=bp.REPULSION_GAIN_LAPF,
+                        attraction_gain=bp.ATTRACTION_GAIN_LAPF,
+                        force_ema_alpha=bp.FORCE_EMA_ALPHA_LAPF,
+                        inflation_margin_mm=bp.INFLATION_MARGIN_LAPF,
+                        leash_length_mm=bp.LEASH_LENGTH_LAPF,
+                        leash_half_angle_deg=bp.LEASH_HALF_ANGLE_DEG_LAPF,
+
+                        lookahead=bp.LOOKAHEAD_LAPF,
+                        advance_radius=bp.ADVANCE_RADIUS_LAPF,
                         blocking=False,
-                        max_angular_rad_s=1.0,
-                        repulsion_gain=150.0,
-                        attraction_gain=1.0,
-                        force_ema_alpha=0.35,
-                        inflation_margin_mm=150.0,
-                        leash_length_mm=400.0,
-                        leash_half_angle_deg=25.0,
-                        advance_radius=bp.TOLERANCE_MM_LAPF * 2.0
                     )
 
         elif self.stage == bp.NavStage.HEADING:
