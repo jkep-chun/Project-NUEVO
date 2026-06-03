@@ -199,12 +199,21 @@ class StepMoveHandle(FsmHandle):
     Handle to track non-blocking stepper motion or homing progress.
     Mimics the interface of MotionHandle.
     """
-    def __init__(self, robot: Robot, stepper_id: int, disable_on_done: bool = True):
+    def __init__(self, robot: Robot, stepper_id: int, disable_on_done: bool = True, target_position: int | None = None):
         super().__init__()
         self._robot = robot
         self._id = stepper_id
         self._disable_on_done = disable_on_done
         self._saw_active = False
+
+        if target_position is not None:
+            state = self._robot.get_step_state()
+            if state is not None:
+                current_pos = state.steppers[self._id - 1].count
+                if current_pos == target_position:
+                    if self._disable_on_done:
+                        self._robot.step_disable(self._id)
+                    self._finished = True
 
     def is_done(self) -> bool:
         """Returns True once motion starts and then returns to IDLE."""
@@ -241,7 +250,7 @@ class StepHomingHandle(StepMoveHandle):
     Completion triggered by a limit switch OR returning to IDLE.
     """
     def __init__(self, robot: Robot, stepper_id: int, limit_id: int, disable_on_done: bool = True):
-        super().__init__(robot, stepper_id, disable_on_done)
+        super().__init__(robot, stepper_id, disable_on_done, target_position=None)
         self._limit_id = limit_id
 
     def is_done(self) -> bool:
@@ -307,7 +316,9 @@ def move_lift(robot: Robot, position: float, move_type: int, disable_on_done: bo
     Returns a StepMoveHandle to poll for completion.
     """
     robot.step_move(hm.LIFT_STEPPER_ID, position, move_type, blocking=False)
-    return StepMoveHandle(robot, hm.LIFT_STEPPER_ID, disable_on_done=disable_on_done)
+    
+    target_pos = int(position) if move_type == hm.StepMoveType.ABSOLUTE else None
+    return StepMoveHandle(robot, hm.LIFT_STEPPER_ID, disable_on_done=disable_on_done, target_position=target_pos)
 
 
 def home_lift(robot: Robot) -> StepHomingHandle:
