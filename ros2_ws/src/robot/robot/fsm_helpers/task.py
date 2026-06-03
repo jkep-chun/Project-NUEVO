@@ -396,7 +396,7 @@ class ManipTask(Task):
                 self._handle = fh.approach_ingredient_table(self._robot)
             elif stage == bp.ManipStage.RETREAT:
                 # TODO: Fix with production code (HIGH)
-                self._handle = self._robot.move_backward(distance=200.0, velocity=bp.VELOCITY_MM_S, tolerance=bp.TOLERANCE_MM, blocking=False)
+                self._handle = self._robot.move_backward(distance=280.0, velocity=bp.VELOCITY_MM_S, tolerance=bp.TOLERANCE_MM, blocking=False)
             elif stage == bp.ManipStage.LOWER:
                 self._handle = fh.move_lift(
                     robot=self._robot,
@@ -408,7 +408,7 @@ class ManipTask(Task):
                 self._handle = fh.move_lift(
                     robot=self._robot,
                     position=hm.LIFT_BUFFER_STEPS,
-                    move_type=hm.StepMoveType.RELATIVE,
+                    move_type=hm.StepMoveType.ABSOLUTE,
                     disable_on_done=False
                 )
             
