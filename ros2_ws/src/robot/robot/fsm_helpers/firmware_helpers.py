@@ -256,13 +256,15 @@ class StepHomingHandle(StepMoveHandle):
     def is_done(self) -> bool:
         """Returns True once limit switch is triggered or motion returns to IDLE."""
         if self._finished:
+            print(f"[HOMING] — Stepper homing complete.")
             return True
 
         # Check limit switch first. If already home (or hit during motion), we are done.
-        if self._robot.get_limit(self._limit_id):
+        if self._robot.get_limit(self._limit_id) or self._finished:
             if self._disable_on_done:
                 self._robot.step_disable(self._id)
             self._finished = True
+            print(f"[HOMING] — Stepper homing complete: limit {self._limit_id} triggered.")
             return True
             
         return super().is_done()
@@ -285,7 +287,7 @@ class ServoHomingHandle(ServoHandle):
         # ServoHandle would set finished=True immediately.
         # We want to force it to move until it hits the limit switch.
         if self._current_angle == 0.0 and not self._robot.get_limit(self._limit_id):
-            self._current_angle = hm.GRIPPER_CLOSE_DEG
+            self._current_angle = hm.GRIPPER_HOME_DEG
             self._sign = -1
             self._finished = False
             self._robot.set_servo(self._servo_id, self._current_angle)
