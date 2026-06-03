@@ -317,7 +317,7 @@ class ServoHomingHandle(ServoHandle):
         done = super().is_done()
         
         if done and not was_finished:
-             print("[HOMING] — Gripper homing complete: 0 deg reached.")
+            print("[HOMING] — Gripper homing complete: 0 deg reached.")
              
         return done
 
