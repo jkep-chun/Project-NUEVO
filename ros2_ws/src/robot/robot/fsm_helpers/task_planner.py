@@ -7,7 +7,7 @@ from robot.fsm_helpers.course_parameters import SQ
 
 start_pose = (0, 0, 90)
 
-MODE = "helpers"
+MODE = "vel_profile_lapf"
 
 if MODE == "RANDOM":
     tasks = [{
@@ -37,6 +37,17 @@ if MODE == "RANDOM":
     #     "path_planner": "pp",
     #     "waypoints": [cp.WP6]
     # },
+    ]
+
+elif MODE == "vel_profile_lapf":
+    # Notes: may need to tune WP_SPACING_LAPF, TOLERANCE_MM_LAPF
+    tasks = [
+        {
+            "state": "NAV",
+            "path_planner": "lapf",
+            "waypoints": [(0*SQ, 0*SQ), (0*SQ, 5*SQ), (0.75*SQ, 5*SQ)],
+            "goal_heading": 0
+        }
     ]
 
 # =============================================================================

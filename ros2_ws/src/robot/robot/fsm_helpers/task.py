@@ -6,6 +6,7 @@ import os
 import numpy as np
 
 from robot.fsm_helpers.path_helpers import generate_open_rounded_path
+from robot.util import densify_polyline
 
 from robot.robot import Robot
 import robot.hardware_map as hm
@@ -52,35 +53,52 @@ class NavTask(Task):
         self._delivery_segment = delivery_segment
 
         self._is_done = False
-        self._wp_lapf_idx = 0
-        self._handle = None
-        self._start_heading = None
-        self._start_traj_idx = len(self._robot._fused_traj)
+        self.wp_lapf_idx = 0
+        self.handle = None
+        self.start_heading = None
+        self._start_traj_idx = len(self.robot._fused_traj)
 
-        self._stage_idx = 0
-        self._stage_sequence = []
-        self._waypoints = list(self._vertices) # Fallback to original vertices
+        self.stage_idx = 0
+        self.stage_sequence = []
+        self.waypoints = list(self.vertices) # Fallback to original vertices
 
-        if self._vertices:
-            self._stage_sequence.append(bp.NavStage.POSITION)
-            if self._path_planner == "pp":
+        if self.vertices:
+            self.stage_sequence.append(bp.NavStage.POSITION)
+            # Remove vertices if within TOLERANCE_MM of initial pose
+            x, y, _ = self.robot.get_pose()
+            while self.vertices:
+                v = self.vertices[0]
+                dx = v[0] - x
+                dy = v[1] - y
+                if math.hypot(dx, dy) < bp.TOLERANCE_MM:
+                    self.vertices.pop(0)
+                else:
+                    break
+            path_vertices = [(x, y)] + self.vertices
+
+            if self.path_planner == "pp":
                 # Make a dense rounded path if in pure pursuit
-                x, y, _ = self._robot.get_pose()
-                path_vertices = [(x, y)] + self._vertices
-                self._waypoints = generate_open_rounded_path(
+                self.waypoints = generate_open_rounded_path(
                     vertices=path_vertices,
                     R=bp.TURN_RADIUS,
                     ds=bp.WP_SPACING
                 )
-                # Add an initial heading pivot if in purepursuit
-                # Find first waypoint far enough to justify a pivot
-                for wp in self._waypoints:
-                    dx = wp[0] - x
-                    dy = wp[1] - y
-                    if math.hypot(dx, dy) > bp.TOLERANCE_MM:
-                        self._start_heading = math.degrees(math.atan2(dy, dx))
-                        self._stage_sequence.insert(0, bp.NavStage.START_HEADING)
-                        break
+
+            elif self.path_planner == "lapf":
+                # Make denser polyline path if in lapf
+                self.waypoints = densify_polyline(
+                    control_points=path_vertices,
+                    spacing=bp.WP_SPACING_LAPF
+                )
+                
+            # Add an initial heading pivot
+            for wp in self.waypoints:
+                dx = wp[0] - x
+                dy = wp[1] - y
+                if math.hypot(dx, dy) > bp.TOLERANCE_MM:
+                    self.start_heading = math.degrees(math.atan2(dy, dx))
+                    self.stage_sequence.insert(0, bp.NavStage.START_HEADING)
+                    break
         
         # Add goal heading if provided
         if self._goal_heading is not None:
@@ -95,20 +113,16 @@ class NavTask(Task):
 
     def update(self):
 
-        if self._handle and self._handle.is_done():
-            self._handle = None
-            if self._stage == bp.NavStage.POSITION and self._path_planner == "lapf" and self._wp_lapf_idx < len(self._waypoints) - 1:
-                # Stay in bp.NavStage.POSITION
-                self._wp_lapf_idx += 1
+        if self.handle and self.handle.is_done():
+            self.handle = None
+            self.stage_idx += 1
+            if self.stage_idx < len(self.stage_sequence):
+                self.stage = self.stage_sequence[self.stage_idx]
             else:
-                self._stage_idx += 1
-                if self._stage_idx < len(self._stage_sequence):
-                    self._stage = self._stage_sequence[self._stage_idx]
-                else:
-                    if self._delivery_segment:
-                        self._mission_data["delivery_status"] = True
-                    self._is_done = True
-                    return
+                if self.delivery_segment:
+                    self.mission_data["delivery_status"] = True
+                self._is_done = True
+                return
 
         if self._stage == bp.NavStage.START_HEADING:
             if self._handle is None:
@@ -133,23 +147,24 @@ class NavTask(Task):
                         max_angular_rad_s=1.0,
                         advance_radius=bp.ADVANCE_RADIUS_MM
                     )
-                elif self._path_planner == "lapf":
-                    wp = self._waypoints[self._wp_lapf_idx]
-                    tx, ty = wp[0], wp[1]
-                    print(f"Driving (LAPF) toward: ({tx:.2f},{ty:.2f})")
-                    self._handle = self._robot.lapf_to_goal(
-                        x=tx, y=ty,
-                        velocity=bp.VELOCITY_MM_S*0.8,
-                        tolerance=bp.TOLERANCE_MM_LAPF,
-                        leash_length_mm=50,
-                        repulsion_range_mm=150.0, # 350.0
-                        target_speed_mm_s=bp.VELOCITY_MM_S,
-                        repulsion_gain=150, # 550.0,
-                        attraction_gain=1.0,
-                        force_ema_alpha=0.35,
-                        inflation_margin_mm=150.0,
-                        leash_half_angle_deg=25.0,
-                        blocking=False
+                elif self.path_planner == "lapf":
+                    print(f"Driving (LAPF) seg with {len(self.waypoints)} waypoints")
+                    self.handle = self.robot.lapf_follow_path(
+                        waypoints=self.waypoints,
+                        velocity=bp.VELOCITY_LAPF,
+                        max_angular_rad_s=bp.ANGULAR_RAD_S_LAPF,
+                        tolerance=bp.TOLERANCE_LAPF,
+                        repulsion_range=bp.REPULSION_RANGE_LAPF,
+                        repulsion_gain=bp.REPULSION_GAIN_LAPF,
+                        attraction_gain=bp.ATTRACTION_GAIN_LAPF,
+                        force_ema_alpha=bp.FORCE_EMA_ALPHA_LAPF,
+                        inflation_margin_mm=bp.INFLATION_MARGIN_LAPF,
+                        leash_length_mm=bp.LEASH_LENGTH_LAPF,
+                        leash_half_angle_deg=bp.LEASH_HALF_ANGLE_DEG_LAPF,
+
+                        lookahead=bp.LOOKAHEAD_LAPF,
+                        advance_radius=bp.ADVANCE_RADIUS_LAPF,
+                        blocking=False,
                     )
 
         elif self._stage == bp.NavStage.HEADING:

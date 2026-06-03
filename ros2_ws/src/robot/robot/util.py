@@ -53,6 +53,43 @@ class TaskHandle:
         self._finished.set()
 
 
+class VelocityProfile:
+    """Helper for trapezoidal velocity profiling."""
+    @staticmethod
+    def trapezoidal(
+        dist_from_start: float,
+        dist_to_goal: float,
+        max_v: float,
+        accel: float,
+        decel: float | None = None,
+        min_v: float = 0.0
+    ) -> float:
+        """
+        Compute target velocity based on distance from start and distance to goal.
+        
+        v = min(max_v, sqrt(2*accel*d_start), sqrt(2*decel*d_goal))
+        """
+        if decel is None:
+            decel = accel
+        
+        # Avoid negative sqrt
+        dist_from_start = max(0.0, dist_from_start)
+        dist_to_goal = max(0.0, dist_to_goal)
+        
+        v_accel = math.sqrt(2.0 * accel * dist_from_start)
+        v_decel = math.sqrt(2.0 * decel * dist_to_goal)
+        
+        return max(min_v, min(max_v, v_accel, v_decel))
+
+
+def get_path_length(path: list[tuple[float, float]]) -> float:
+    """Return the total Euclidean length of a waypoint path."""
+    length = 0.0
+    for i in range(len(path) - 1):
+        length += math.hypot(path[i+1][0] - path[i][0], path[i+1][1] - path[i][1])
+    return length
+
+
 def run_task(worker, blocking: bool = True, timeout: float = None):
     """
     Run a custom task in a background thread.
