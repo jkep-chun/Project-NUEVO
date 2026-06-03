@@ -26,7 +26,13 @@ class MissionFSM(RobotFSM):
         self.tasks = task_list
         self.current_task: Task = None
         self.task_idx = 0
-        self.mission_data = {}
+        self.mission_data = {
+            "waypoints": [],
+            "vertices": [],
+            "burger_stack": [],
+            "delivery_status": False,
+            "matched_customer": None
+        }
 
         # Motion handles (mostly managed by tasks now, but kept for homing)
         self.homing_lift_handle = None

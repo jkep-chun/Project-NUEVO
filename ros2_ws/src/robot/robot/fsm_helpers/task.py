@@ -188,9 +188,14 @@ class NavTask(Task):
 
     def on_exit(self) -> None:
         """
+        Write waypoint to mission data
+
         Save a plot of the robot's trajectory and waypoints to a .jpg file
         in /runtime_output/plots/ upon exiting the navigation task.
         """
+        for wp in self._waypoints: self._mission_data["waypoints"].append(wp)
+        for v in self._vertices: self._mission_data["vertices"].append(v)
+
         try:
             import matplotlib
             matplotlib.use('Agg') # Headless-safe
@@ -340,17 +345,24 @@ class ManipTask(Task):
         command = params.get("command")
         if command == "pick":
             self._sequence = bp.PICK_SEQUENCE
+            self._raise_steps = hm.LIFT_BUFFER_STEPS
         elif command == "place":
             self._sequence = bp.PLACE_SEQUENCE
+            self._raise_steps = 0
+            for ingredient in self._mission_data["burger_stack"]:
+                if ingredient == "bun":
+                    self._raise_steps += 1000 # TODO: Tune (HIGH)
+                elif ingredient == "patty":
+                    self._raise_steps += 1000 # TODO: Tune (HIGH)
         else:
             self._sequence = []
             self._is_done = True
 
-        ingredient = params.get("ingredient")
-        if ingredient == "bun":
+        self._ingredient = params.get("ingredient")
+        if self._ingredient == "bun":
             self._level_height = hm.LIFT_EXTEND_STEPS_BUN
             self._close_deg = hm.GRIPPER_CLOSE_DEG_BUN
-        elif ingredient == "patty":
+        elif self._ingredient == "patty":
             self._level_height = hm.LIFT_EXTEND_STEPS_PATTY
             self._close_deg = hm.GRIPPER_CLOSE_DEG_PATTY
         
@@ -366,6 +378,7 @@ class ManipTask(Task):
     def on_exit(self) -> None:
         """Disable power-hungry manipulator hardware upon exit."""
         self._robot.step_disable(hm.LIFT_STEPPER_ID)
+        self._mission_data["burger_stack"].append(self._ingredient)
 
     def update(self):
         if self._is_done:
@@ -395,8 +408,24 @@ class ManipTask(Task):
             elif stage == bp.ManipStage.FORWARD:
                 self._handle = fh.approach_ingredient_table(self._robot)
             elif stage == bp.ManipStage.RETREAT:
-                # TODO: Fix with production code (HIGH)
-                self._handle = self._robot.move_backward(distance=280.0, velocity=bp.VELOCITY_MM_S, tolerance=bp.TOLERANCE_MM, blocking=False)
+                x, y, _ = self._robot.get_pose()
+                
+                # Default backoff if nav data is missing
+                backoff_distance = 100.0 
+                
+                if "waypoints" in self._mission_data and self._mission_data["waypoints"]:
+                    # Retrieve the last waypoint of the last navigation task
+                    # This represents the pose before the 'FORWARD' approach stage
+                    last_wp = self._mission_data["waypoints"][-1]
+                    backoff_distance = math.dist([x, y], last_wp)
+                
+                print(f"[ManipTask] Retreating {backoff_distance:.1f} mm")
+                self._handle = self._robot.move_backward(
+                    distance=backoff_distance,
+                    velocity=bp.VELOCITY_MM_S,
+                    tolerance=bp.TOLERANCE_MM,
+                    blocking=False
+                )
             elif stage == bp.ManipStage.LOWER:
                 self._handle = fh.move_lift(
                     robot=self._robot,
@@ -407,7 +436,7 @@ class ManipTask(Task):
             elif stage == bp.ManipStage.RAISE:
                 self._handle = fh.move_lift(
                     robot=self._robot,
-                    position=hm.LIFT_BUFFER_STEPS,
+                    position=self._raise_steps,
                     move_type=hm.StepMoveType.ABSOLUTE,
                     disable_on_done=False
                 )
