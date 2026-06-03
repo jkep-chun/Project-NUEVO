@@ -7,7 +7,7 @@ from robot.fsm_helpers.course_parameters import SQ
 
 start_pose = (0, 0, 90)
 
-MODE = "ALL_WAYPOINTS"
+MODE = "helpers"
 
 if MODE == "RANDOM":
     tasks = [{
@@ -92,6 +92,12 @@ elif MODE == "TUNE_LAPF":
         "waypoints": [(0*SQ, 3*SQ)],
         "goal_heading": 0.0
     }
+    ]
+
+elif MODE == "helpers":
+    tasks = [
+        {"state": "MANIP", "cmd": "pick"},
+        {"state": "Manip", "cmd": "place"}
     ]
 
 # =============================================================================

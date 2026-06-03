@@ -4,9 +4,9 @@ Course-specific geometry
 
 SQ = 609.6 # Length of one square in mm
 
-EXTRA = 25.0 # Extra distance traveled over ramp (mm) # TODO: Tune (HIGH)
+EXTRA = 25.0 # Over ramp (mm) TODO: Tune (LOW)
 
-MAX_TURN_FOR_TRAFFIC_LIGHT_DEG = 30 # TODO: Verify
+MAX_TURN_FOR_TRAFFIC_LIGHT_DEG = 30 # TODO: Verify (HIGH)
 
 WP_TRAFFIC_LIGHT  = (0*SQ,    0*SQ)
 WP_BURGER_BUN_1   = (0*SQ,    1.75*SQ)
