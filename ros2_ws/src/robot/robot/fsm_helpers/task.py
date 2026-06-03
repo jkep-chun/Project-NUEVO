@@ -333,8 +333,10 @@ class ManipTask(Task):
 
         ingredient = params.get("ingredient")
         if ingredient == "bun":
+            self._level_height = hm.LIFT_EXTEND_STEPS_BUN
             self._close_deg = hm.GRIPPER_CLOSE_DEG_BUN
         elif ingredient == "patty":
+            self._level_height = hm.LIFT_EXTEND_STEPS_PATTY
             self._close_deg = hm.GRIPPER_CLOSE_DEG_PATTY
         
         self._idx = 0
@@ -361,7 +363,7 @@ class ManipTask(Task):
             if stage == bp.ManipStage.LEVEL:
                 self._handle = fh.move_lift(
                     robot=self._robot,
-                    position=hm.LIFT_EXTEND_STEPS,
+                    position=self._level_height,
                     move_type=hm.StepMoveType.ABSOLUTE,
                     disable_on_done=False
                 )

@@ -97,9 +97,12 @@ elif MODE == "TUNE_LAPF":
 elif MODE == "helpers":
     tasks = [
         {"state": "MANIP", "command": "pick", "ingredient": "bun"},
+        {"state": "IDENT"},
         {"state": "MANIP", "command": "pick", "ingredient": "patty"},
+        {"state": "IDENT"},
         {"state": "MANIP", "command": "pick", "ingredient": "bun"},
-        {"state": "Manip", "command": "place"}
+        {"state": "IDENT"},
+        {"state": "MANIP", "command": "place"}
     ]
 
 # =============================================================================
