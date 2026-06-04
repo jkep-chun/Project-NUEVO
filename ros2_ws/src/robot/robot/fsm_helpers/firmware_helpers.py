@@ -54,8 +54,18 @@ def start_robot(robot: Robot) -> None:
         robot.reset_estop()
     robot.set_state(FirmwareState.RUNNING)
     kp, ki, kd = hm.WHEEL_VEL_PID
-    robot.set_pid_gains(hm.Motor.DC_M1, hm.DCPidLoop.VELOCITY, kp, ki, kd)
-    robot.set_pid_gains(hm.Motor.DC_M2, hm.DCPidLoop.VELOCITY, kp, ki, kd)
+    robot.set_pid_gains(
+        hm.Motor.DC_M1, hm.DCPidLoop.VELOCITY, kp, ki, kd,
+        deadband_static=hm.DB_STATIC,
+        deadband_kinetic=hm.DB_KINETIC,
+        stop_threshold=hm.STOP_THRESHOLD
+    )
+    robot.set_pid_gains(
+        hm.Motor.DC_M2, hm.DCPidLoop.VELOCITY, kp, ki, kd,
+        deadband_static=hm.DB_STATIC,
+        deadband_kinetic=hm.DB_KINETIC,
+        stop_threshold=hm.STOP_THRESHOLD
+    )
 
 
 def reset_mission_pose(robot: Robot) -> None:

@@ -244,6 +244,27 @@ public:
     void setVelocityPID(float kp, float ki, float kd);
 
     /**
+     * @brief Set static deadband compensation
+     *
+     * @param db Static deadband value (added when starting from 0)
+     */
+    void setDeadbandStatic(float db);
+
+    /**
+     * @brief Set kinetic deadband compensation
+     *
+     * @param db Kinetic deadband value (added when moving)
+     */
+    void setDeadbandKinetic(float db);
+
+    /**
+     * @brief Set stopping threshold (ticks/sec)
+     *
+     * @param threshold Velocity below which power is cut when target is 0
+     */
+    void setStopThreshold(float threshold);
+
+    /**
      * @brief Set direct PWM output (PWM mode only)
      *
      * Only applied when motor is in DC_MODE_PWM. Stored and applied on
@@ -372,6 +393,21 @@ public:
     int16_t getPWMOutput() const { return pwmOutput_; }
 
     /**
+     * @brief Get static deadband compensation
+     */
+    float getDeadbandStatic() const { return deadbandStatic_; }
+
+    /**
+     * @brief Get kinetic deadband compensation
+     */
+    float getDeadbandKinetic() const { return deadbandKinetic_; }
+
+    /**
+     * @brief Get stopping threshold (ticks/sec)
+     */
+    float getStopThreshold() const { return stopThreshold_; }
+
+    /**
      * @brief Get motor current
      *
      * @return Current in milliamps, -1 if current sensing not configured
@@ -425,6 +461,9 @@ private:
     int16_t pwmOutput_;                     // Current PWM output (-255 to +255)
     int16_t currentMa_;                     // Motor current in milliamps (-1 if not available)
     float maPerVolt_;                       // Current sensor scaling (mA/V)
+    float deadbandStatic_;                  // Static deadband compensation
+    float deadbandKinetic_;                 // Kinetic deadband compensation
+    float stopThreshold_;                   // Stopping threshold (ticks/sec)
 
     // PID controllers
     PIDController positionPID_;             // Position loop (outer)

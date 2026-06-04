@@ -128,6 +128,9 @@ export interface DCPidRspData {
   kd: number
   maxOutput: number
   maxIntegral: number
+  deadbandStatic: number
+  deadbandKinetic: number
+  stopThreshold: number
 }
 
 export interface StepperStateData {
@@ -292,6 +295,9 @@ export interface DCMotorItem extends DCStateMotorData {
   velKp: number
   velKi: number
   velKd: number
+  deadbandStatic: number
+  deadbandKinetic: number
+  stopThreshold: number
 }
 
 export interface DCStatusAllData {

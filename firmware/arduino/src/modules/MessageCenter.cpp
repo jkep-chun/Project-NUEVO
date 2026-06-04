@@ -1262,7 +1262,6 @@ void MessageCenter::handleDCPidSet(const PayloadDCPidSet *payload)
         return;
 
     DCMotor &motor = dcMotors[payload->motorId];
-
     if (payload->loopType == DC_PID_LOOP_POSITION)
     {
         motor.setPositionPID(payload->kp, payload->ki, payload->kd);
@@ -1271,6 +1270,29 @@ void MessageCenter::handleDCPidSet(const PayloadDCPidSet *payload)
     {
         motor.setVelocityPID(payload->kp, payload->ki, payload->kd);
     }
+
+    motor.setDeadbandStatic(payload->deadbandStatic);
+    motor.setDeadbandKinetic(payload->deadbandKinetic);
+    motor.setStopThreshold(payload->stopThreshold);
+
+#ifdef DEBUG_TLV_PROTOCOL
+    DEBUG_LOG.print(F("[DC] PID SET motor="));
+    DEBUG_LOG.print(payload->motorId);
+    DEBUG_LOG.print(F(" loop="));
+    DEBUG_LOG.print(payload->loopType);
+    DEBUG_LOG.print(F(" kp="));
+    DEBUG_LOG.print(payload->kp);
+    DEBUG_LOG.print(F(" ki="));
+    DEBUG_LOG.print(payload->ki);
+    DEBUG_LOG.print(F(" kd="));
+    DEBUG_LOG.print(payload->kd);
+    DEBUG_LOG.print(F(" dbs="));
+    DEBUG_LOG.print(payload->deadbandStatic);
+    DEBUG_LOG.print(F(" dbk="));
+    DEBUG_LOG.print(payload->deadbandKinetic);
+    DEBUG_LOG.print(F(" st="));
+    DEBUG_LOG.println(payload->stopThreshold);
+#endif
 
     pendingDCPidRspMask_ |= (uint8_t)(1u << (payload->motorId * 2u + payload->loopType));
 }
@@ -2036,6 +2058,9 @@ void MessageCenter::sendDCPidRsp(uint8_t motorId, uint8_t loopType)
     }
     payload.maxOutput = PID_OUTPUT_MAX;
     payload.maxIntegral = PID_OUTPUT_MAX;
+    payload.deadbandStatic = dcMotors[motorId].getDeadbandStatic();
+    payload.deadbandKinetic = dcMotors[motorId].getDeadbandKinetic();
+    payload.stopThreshold = dcMotors[motorId].getStopThreshold();
 
     appendTlv(DC_PID_RSP, sizeof(payload), &payload);
 }

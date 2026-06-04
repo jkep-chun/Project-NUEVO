@@ -36,6 +36,9 @@ export function DCMotorSection({ motorId }: DCMotorSectionProps) {
 
   const [positionPID, setPositionPID] = useState({ p: "1.0", i: "0.1",  d: "0.05" });
   const [velocityPID, setVelocityPID] = useState({ p: "0.8", i: "0.05", d: "0.02" });
+  const [deadbandStatic, setDeadbandStatic] = useState("85.0");
+  const [deadbandKinetic, setDeadbandKinetic] = useState("5.0");
+  const [stopThreshold, setStopThreshold] = useState("5.0");
 
   // Sync PID from live status when modal opens
   useEffect(() => {
@@ -50,6 +53,9 @@ export function DCMotorSection({ motorId }: DCMotorSectionProps) {
         i: status.velKi.toFixed(4),
         d: status.velKd.toFixed(4),
       });
+      setDeadbandStatic(status.deadbandStatic.toFixed(1));
+      setDeadbandKinetic(status.deadbandKinetic.toFixed(1));
+      setStopThreshold(status.stopThreshold.toFixed(1));
     }
   }, [showModal]); // intentionally omit status to avoid resetting while editing
 
@@ -107,6 +113,9 @@ export function DCMotorSection({ motorId }: DCMotorSectionProps) {
       kp: parseFloat(pid.p),
       ki: parseFloat(pid.i),
       kd: parseFloat(pid.d),
+      deadbandStatic: parseFloat(deadbandStatic),
+      deadbandKinetic: parseFloat(deadbandKinetic),
+      stopThreshold: parseFloat(stopThreshold),
     });
   };
 
@@ -359,9 +368,39 @@ export function DCMotorSection({ motorId }: DCMotorSectionProps) {
                     />
                   </div>
                 ))}
+                <div className="flex items-center gap-1 ml-2 border-l border-white/10 pl-3">
+                  <span className="text-xs text-white/40 uppercase flex-shrink-0">Deadband S</span>
+                  <Input
+                    type="number"
+                    step="1"
+                    value={deadbandStatic}
+                    onChange={(e) => setDeadbandStatic(e.target.value)}
+                    className="w-20 bg-white/10 border-white/20 text-white text-xs h-9 px-2"
+                  />
+                </div>
+                <div className="flex items-center gap-1 ml-2 border-l border-white/10 pl-3">
+                  <span className="text-xs text-white/40 uppercase flex-shrink-0">Deadband K</span>
+                  <Input
+                    type="number"
+                    step="1"
+                    value={deadbandKinetic}
+                    onChange={(e) => setDeadbandKinetic(e.target.value)}
+                    className="w-20 bg-white/10 border-white/20 text-white text-xs h-9 px-2"
+                  />
+                </div>
+                <div className="flex items-center gap-1 ml-2 border-l border-white/10 pl-3">
+                  <span className="text-xs text-white/40 uppercase flex-shrink-0">Stop Thr</span>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={stopThreshold}
+                    onChange={(e) => setStopThreshold(e.target.value)}
+                    className="w-20 bg-white/10 border-white/20 text-white text-xs h-9 px-2"
+                  />
+                </div>
                 <button
                   onClick={handleApplyPID}
-                  className="flex-shrink-0 px-3 py-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition-all text-xs font-semibold text-white"
+                  className="flex-shrink-0 px-3 py-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition-all text-xs font-semibold text-white ml-2"
                 >
                   Apply
                 </button>

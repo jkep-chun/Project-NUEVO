@@ -7,7 +7,7 @@ from robot.fsm_helpers.course_parameters import SQ
 
 start_pose = (0, 0, 90)
 
-MODE = "vel_profile_lapf"
+MODE = "feedforward"
 
 if MODE == "RANDOM":
     tasks = [{
@@ -47,6 +47,16 @@ elif MODE == "vel_profile_lapf":
             "path_planner": "lapf",
             "waypoints": [(0*SQ, 0*SQ), (0*SQ, 5*SQ), (0.75*SQ, 5*SQ)],
             "goal_heading": 0
+        }
+    ]
+
+elif MODE == "feedforward":
+    tasks = [
+        {
+            "state": "NAV",
+            "path_planner": "pp",
+            "waypoints": [(0*SQ, 10*SQ)],
+            # "goal_heading": 0
         }
     ]
 

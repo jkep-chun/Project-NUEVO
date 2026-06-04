@@ -6,3 +6,6 @@ float32 ki
 float32 kd
 float32 max_output
 float32 max_integral
+float32 deadband_static
+float32 deadband_kinetic
+float32 stop_threshold
