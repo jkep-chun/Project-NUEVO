@@ -40,6 +40,80 @@ class Task:
         self._robot.stop()
 
 
+class HomeTask(Task):
+    def __init__(self, robot: Robot, mission_data: dict):
+        super().__init__(robot, mission_data)
+        self._is_done = False
+        self._stepper_handle = None
+        self._gripper_handle = None
+        self._stepper_done = False
+        self._gripper_done = False
+
+    def on_enter(self) -> None:
+        print("[HomeTask] ENTER: Homing lift and gripper.")
+        
+        # 1. Start lift homing
+        if self._robot.get_limit(hm.Limit.LIM_1):
+            print("[HomeTask] Lift already at home limit. Resetting position.")
+            # We call step_home just to put the firmware in homing mode for a moment,
+            # then immediately cancel it to force the handle to see IDLE state.
+            # The firmware ISR will have already zeroed currentPosition_ if the limit is seen.
+            self._robot.step_home(hm.LIFT_STEPPER_ID)
+            self._robot.step_disable(hm.LIFT_STEPPER_ID) 
+            # We don't create a handle if already done
+            self._stepper_done = True
+        else:
+            self._stepper_handle = fh.home_lift(self._robot)
+        
+        # 2. Start gripper homing
+        if self._robot.get_limit(hm.GRIPPER_LIMIT):
+            print("[HomeTask] Gripper already at home limit.")
+            self._gripper_done = True
+        else:
+            self._gripper_handle = fh.home_gripper(self._robot)
+
+    def update(self) -> None:
+        if self._is_done:
+            return
+
+        # Check stepper progress
+        if not self._stepper_done:
+            if self._robot.get_limit(hm.Limit.LIM_1) or (self._stepper_handle and self._stepper_handle.is_done()):
+                print(f"[HomeTask] Lift homing complete.")
+                if self._stepper_handle:
+                    self._stepper_handle.cancel()
+                    self._stepper_handle = None
+                self._stepper_done = True
+        
+        # Check gripper homing progress
+        if not self._gripper_done:
+            if self._robot.get_limit(hm.GRIPPER_LIMIT) or (self._gripper_handle and self._gripper_handle.is_done()):
+                print(f"[HomeTask] Gripper homing complete.")
+                if self._gripper_handle:
+                    self._gripper_handle.cancel()
+                    self._gripper_handle = None
+                self._gripper_done = True
+
+        # Task is done when both subsystems have reached home
+        if self._stepper_done and self._gripper_done:
+            self._is_done = True
+
+    def cancel(self) -> None:
+        if self._stepper_handle:
+            self._stepper_handle.cancel()
+            self._stepper_handle = None
+        if self._gripper_handle:
+            self._gripper_handle.cancel()
+            self._gripper_handle = None
+        super().cancel()
+
+    def is_done(self) -> bool:
+        return self._is_done
+
+    def on_exit(self) -> None:
+        print("[HomeTask] EXIT: Homing complete.")
+
+
 class NavTask(Task):
     def __init__(self, robot, mission_data, waypoints, goal_heading=None, path_planner="pp", delivery_segment=False):
         super().__init__(robot, mission_data)
@@ -557,5 +631,7 @@ def build_task(robot: Robot, task_dict: dict, mission_data: dict) -> Task:
         return ManipTask(robot, mission_data, task_dict)
     elif state == "IDENT":
         return IdentTask(robot, mission_data)
+    elif state == "HOME":
+        return HomeTask(robot, mission_data)
     else:
         return Task(robot, mission_data)

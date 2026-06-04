@@ -130,6 +130,9 @@ elif MODE == "helpers":
 
 elif MODE == "manip_nav":
     tasks = [
+        {
+            "state": "HOME"
+        },
         # {
         #     "state": "NAV",
         #     "path_planner": "pp",
