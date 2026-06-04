@@ -1,8 +1,8 @@
 """
 Course-specific geometry
 """
-
-SQ = 609.6 # Length of one square in mm
+# SQ = 609.6
+SQ = 600.456 # Length of one square in mm
 
 EXTRA = 25.0 # Over ramp (mm) TODO: Tune (LOW)
 
@@ -20,6 +20,7 @@ WP1             = (0*SQ,    6*SQ)
 WP2             = (1*SQ,    6*SQ)
 WP3             = (1*SQ,    1*SQ - EXTRA)
 WP4             = (2.5*SQ,  1*SQ - EXTRA)
+WP4B            = (2.5*SQ,  5.75*SQ - EXTRA)
 WP_CUSTOMER_ID  = (3.25*SQ, 6*SQ - EXTRA)
 WP5             = (4*SQ,    6*SQ - EXTRA)
 WP6             = (4*SQ,    0*SQ - EXTRA)

@@ -26,7 +26,13 @@ class MissionFSM(RobotFSM):
         self.tasks = task_list
         self.current_task: Task = None
         self.task_idx = 0
-        self.mission_data = {}
+        self.mission_data = {
+            "waypoints": [],
+            "vertices": [],
+            "burger_stack": [],
+            "delivery_status": False,
+            "matched_customer": None
+        }
 
         # Motion handles (mostly managed by tasks now, but kept for homing)
         self.homing_lift_handle = None
@@ -41,9 +47,9 @@ class MissionFSM(RobotFSM):
         self.add_transition("INIT", "to_homing", "HOMING")
         self.add_transition("HOMING", "to_init", "INIT")
         self.add_transition("EXECUTE", "next", "EXECUTE", action=self._advance_task)
-        self.add_transition("EXECUTE", "e-stop", "INIT")
+        self.add_transition("EXECUTE", "e-stop", "ERROR")
         self.add_transition("EXECUTE", "to_done", "DONE")
-        self.add_transition("EXECUTE", "error", "INIT")
+        self.add_transition("EXECUTE", "error", "ERROR")
         self.add_transition("DONE", "to_init", "INIT")
 
         # SQLITE3 LOGGING SETUP
@@ -141,6 +147,14 @@ class MissionFSM(RobotFSM):
                 "\n    BTN_1 -> INIT"
             )
 
+        elif state =="ERROR":
+            self.robot.shutdown()
+            if self.conn:
+                self.conn.close()
+                self.conn = None
+            self.robot.estop()
+            print("\n>>> ERROR (CTRL + C TO TERMINATE NODE)")
+
 
     def update(self) -> None:
         """Called at DEFAULT_FSM_HZ, non-blocking."""
@@ -186,6 +200,9 @@ class MissionFSM(RobotFSM):
             if self.robot.was_button_pressed(Button.BTN_1):
                 self._setup_logging()
                 self.trigger("to_init")
+
+        elif state_str == "ERROR":
+            pass
 
 
 def run(robot: Robot) -> None:
