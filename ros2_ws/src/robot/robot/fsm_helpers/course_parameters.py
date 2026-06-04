@@ -1,8 +1,8 @@
 """
 Course-specific geometry
 """
-
-SQ = 609.6 # Length of one square in mm
+# SQ = 609.6
+SQ = 600.456 # Length of one square in mm
 
 EXTRA = 25.0 # Over ramp (mm) TODO: Tune (LOW)
 
