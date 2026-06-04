@@ -41,6 +41,7 @@ class MissionFSM(RobotFSM):
         # Execution
         self.timer_start = None
         self.execution_print_period = 1.0
+        self._start_traj_idx = 0
         
         # Transitions
         self.add_transition("INIT", "to_execute", "EXECUTE")
@@ -129,6 +130,9 @@ class MissionFSM(RobotFSM):
         elif state == "EXECUTE":
             self.timer_start = time.monotonic() # Reset timer for the new task
 
+            if self.task_idx == 0:
+                self._start_traj_idx = len(self.robot._fused_traj)
+
             if self.task_idx < len(self.tasks):
                 task_dict = self.tasks[self.task_idx]
                 self.current_task = build_task(self.robot, task_dict, self.mission_data)
@@ -138,6 +142,7 @@ class MissionFSM(RobotFSM):
                 self.trigger("to_done")
 
         elif state == "DONE":
+            self._plot_trajectory()
             self.robot.shutdown()
             if self.conn:
                 self.conn.close()
@@ -154,6 +159,84 @@ class MissionFSM(RobotFSM):
                 self.conn = None
             self.robot.estop()
             print("\n>>> ERROR (CTRL + C TO TERMINATE NODE)")
+
+
+    def _plot_trajectory(self) -> None:
+        """
+        Save a plot of the robot's trajectory and waypoints to a .jpg file
+        in /runtime_output/plots/ upon completing the mission.
+        """
+        try:
+            import matplotlib
+            matplotlib.use('Agg') # Headless-safe
+            import matplotlib.pyplot as plt
+        except ImportError:
+            print("[MissionFSM] matplotlib not installed; skipping path plot")
+            return
+
+        # Trajectory data from Robot (mm)
+        odom = list(self.robot._odom_traj)[self._start_traj_idx:]
+        fused = list(self.robot._fused_traj)[self._start_traj_idx:]
+        
+        if not odom and not fused:
+            return
+
+        plt.figure(figsize=(10, 8))
+        
+        # Plot raw odometry (light blue)
+        if odom:
+            ox, oy = zip(*odom)
+            plt.plot(ox, oy, label='Odometry (Raw)', color='steelblue', alpha=0.4, linewidth=1)
+        
+        # Plot fused trajectory (bold orange)
+        if fused:
+            fx, fy = zip(*fused)
+            plt.plot(fx, fy, label='Fused Trajectory', color='darkorange', linewidth=2)
+
+        # Plot all mission waypoints
+        waypoints = self.mission_data.get("waypoints", [])
+        if waypoints:
+            wx = [wp[0] for wp in waypoints]
+            wy = [wp[1] for wp in waypoints]
+            plt.scatter(wx, wy, color='green', marker='o', s=40, label='Waypoint', zorder=5)
+            
+            if len(wx) > 0:
+                plt.text(wx[0], wy[0], ' Start', color='green', verticalalignment='bottom', fontsize=9)
+                plt.text(wx[-1], wy[-1], ' End', color='red', verticalalignment='bottom', fontsize=9)
+
+        # Plot all mission vertices
+        vertices = self.mission_data.get("vertices", [])
+        if vertices:
+            vx = [v[0] for v in vertices]
+            vy = [v[1] for v in vertices]
+            plt.scatter(vx, vy, color='purple', marker='o', s=65, label='Vertices', zorder=4)
+
+        # Current robot pose
+        curr_x, curr_y, _ = self.robot.get_pose()
+        plt.scatter([curr_x], [curr_y], color='red', marker='X', s=100, label='Final Position', zorder=10)
+
+        plt.xlabel('X (mm)')
+        plt.ylabel('Y (mm)')
+        plt.title('Robot Navigation Trajectory (Mission)')
+        plt.legend()
+        plt.axis('equal')
+        plt.grid(True)
+        
+        # Determine save directory
+        save_dir = "/runtime_output/plots"
+        if not os.path.exists(save_dir):
+            save_dir = "ros2_ws/runtime_output/plots"
+            
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, "final_trajectory.jpg")
+        
+        try:
+            plt.savefig(save_path, format='jpg', dpi=150)
+            print(f"[MissionFSM] Trajectory plot saved to {save_path}")
+        except Exception as e:
+            print(f"[MissionFSM] Error saving plot: {e}")
+        finally:
+            plt.close()
 
 
     def update(self) -> None:
