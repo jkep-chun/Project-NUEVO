@@ -55,7 +55,9 @@ def start_robot(robot: Robot) -> None:
     robot.set_state(FirmwareState.RUNNING)
     kp, ki, kd = hm.WHEEL_VEL_PID
     robot.set_pid_gains(hm.Motor.DC_M1, hm.DCPidLoop.VELOCITY, kp, ki, kd)
+    robot.set_deadband(hm.Mtor.DC_M1, hm.DB_STATIC, hm.DB_KINETIC, hm.STOP_THRESHOLD)
     robot.set_pid_gains(hm.Motor.DC_M2, hm.DCPidLoop.VELOCITY, kp, ki, kd)
+    robot.set_deadband(hm.Mtor.DC_M2, hm.DB_STATIC, hm.DB_KINETIC, hm.STOP_THRESHOLD)
 
 
 def reset_mission_pose(robot: Robot) -> None:

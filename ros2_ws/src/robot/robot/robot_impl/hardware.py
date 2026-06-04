@@ -317,7 +317,7 @@ class HardwareMixin:
         with self._lock:
             return self._dc_pid_cache.get((motor_id, loop_type))
 
-    def set_deadband(self, motor_id: int, deadband_static: float, deadband_kinetic: float, stop_threshold: float = 5.0) -> None:
+    def set_deadband(self, motor_id: int, deadband_static: float, deadband_kinetic: float, stop_threshold: float = 50.0) -> None:
         """Set static/kinetic deadband and stopping threshold for a DC motor."""
         motor_id = self._require_id("motor_id", motor_id, 1, 4)
         # Use velocity loop cache to preserve PID gains if possible
