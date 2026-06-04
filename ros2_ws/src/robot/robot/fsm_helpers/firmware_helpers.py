@@ -257,27 +257,24 @@ class StepMoveHandle(FsmHandle):
 class StepHomingHandle(StepMoveHandle):
     """
     Handle to track non-blocking stepper homing progress.
-    Completion triggered by a limit switch OR returning to IDLE.
+    Completion triggered by returning to IDLE.
     """
-    def __init__(self, robot: Robot, stepper_id: int, limit_id: int, disable_on_done: bool = True):
-        super().__init__(robot, stepper_id, disable_on_done, target_position=None)
+    def __init__(self, robot: Robot, stepper_id: int, limit_id: int, disable_on_done: bool = True, target_position: int | None = None):
+        super().__init__(robot, stepper_id, disable_on_done, target_position=target_position)
         self._limit_id = limit_id
 
     def is_done(self) -> bool:
-        """Returns True once limit switch is triggered or motion returns to IDLE."""
+        """Returns True once motion returns to IDLE."""
         if self._finished:
-            print(f"[HOMING] — Stepper homing complete.")
             return True
 
-        # Check limit switch first. If already home (or hit during motion), we are done.
-        if self._robot.get_limit(self._limit_id) or self._finished:
-            if self._disable_on_done:
-                self._robot.step_disable(self._id)
-            self._finished = True
-            print(f"[HOMING] — Stepper homing complete: limit {self._limit_id} triggered.")
-            return True
-            
-        return super().is_done()
+        # Check for completion via returning to IDLE (handled by base class).
+        # We MUST NOT return True just because the limit switch is triggered,
+        # as there may be a post-homing position move (backoff or target_position).
+        done = super().is_done()
+        if done:
+            print(f"[HOMING] — Stepper homing complete.")
+        return done
 
 
 class ServoHomingHandle(ServoHandle):
@@ -333,7 +330,7 @@ def move_lift(robot: Robot, position: float, move_type: int, disable_on_done: bo
     return StepMoveHandle(robot, hm.LIFT_STEPPER_ID, disable_on_done=disable_on_done, target_position=target_pos)
 
 
-def home_lift(robot: Robot) -> StepHomingHandle:
+def home_lift(robot: Robot, post_position: int | None = None) -> StepHomingHandle:
     """
     Starts the non-blocking homing sequence for the lift.
     Returns a StepHomingHandle to poll for completion.
@@ -346,7 +343,7 @@ def home_lift(robot: Robot) -> StepHomingHandle:
         home_velocity=hm.LIFT_HOME_VELOCITY,
         blocking=False
     )
-    return StepHomingHandle(robot, hm.LIFT_STEPPER_ID, limit_id=hm.Limit.LIM_1, disable_on_done=True)
+    return StepHomingHandle(robot, hm.LIFT_STEPPER_ID, limit_id=hm.Limit.LIM_1, disable_on_done=True, target_position=post_position)
 
 
 def home_gripper(robot: Robot) -> ServoHomingHandle:
