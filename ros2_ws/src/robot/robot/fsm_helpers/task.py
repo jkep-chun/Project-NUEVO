@@ -48,20 +48,22 @@ class HomeTask(Task):
         self._gripper_handle = None
         self._stepper_done = False
         self._gripper_done = False
+        
+        self._stepper_settle_start = 0.0
+        self._stepper_is_settling = False
 
     def on_enter(self) -> None:
         print("[HomeTask] ENTER: Homing lift and gripper.")
         
         # 1. Start lift homing
         if self._robot.get_limit(hm.Limit.LIM_1):
-            print("[HomeTask] Lift already at home limit. Resetting position.")
-            # We call step_home just to put the firmware in homing mode for a moment,
-            # then immediately cancel it to force the handle to see IDLE state.
-            # The firmware ISR will have already zeroed currentPosition_ if the limit is seen.
+            print("[HomeTask] Lift already at home limit. Triggering firmware zero-reset...")
+            # Trigger a home anyway to ensure firmware zeroes the position.
             self._robot.step_home(hm.LIFT_STEPPER_ID)
-            self._robot.step_disable(hm.LIFT_STEPPER_ID) 
-            # We don't create a handle if already done
-            self._stepper_done = True
+            
+            # Start a non-blocking settle timer to give firmware time to process the ISR
+            self._stepper_settle_start = time.monotonic()
+            self._stepper_is_settling = True
         else:
             self._stepper_handle = fh.home_lift(self._robot)
         
@@ -78,20 +80,22 @@ class HomeTask(Task):
 
         # Check stepper progress
         if not self._stepper_done:
-            if self._robot.get_limit(hm.Limit.LIM_1) or (self._stepper_handle and self._stepper_handle.is_done()):
+            if self._stepper_is_settling:
+                # Wait 20ms for firmware ISR to zero the counter before declaring "done"
+                if time.monotonic() - self._stepper_settle_start > 0.02:
+                    print("[HomeTask] Lift settlement complete.")
+                    self._stepper_done = True
+                    self._stepper_is_settling = False
+            elif self._stepper_handle and self._stepper_handle.is_done():
                 print(f"[HomeTask] Lift homing complete.")
-                if self._stepper_handle:
-                    self._stepper_handle.cancel()
-                    self._stepper_handle = None
+                self._stepper_handle = None
                 self._stepper_done = True
         
         # Check gripper homing progress
         if not self._gripper_done:
-            if self._robot.get_limit(hm.GRIPPER_LIMIT) or (self._gripper_handle and self._gripper_handle.is_done()):
+            if self._gripper_handle and self._gripper_handle.is_done():
                 print(f"[HomeTask] Gripper homing complete.")
-                if self._gripper_handle:
-                    self._gripper_handle.cancel()
-                    self._gripper_handle = None
+                self._gripper_handle = None
                 self._gripper_done = True
 
         # Task is done when both subsystems have reached home
