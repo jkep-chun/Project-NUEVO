@@ -287,18 +287,62 @@ class HardwareMixin:
         kd: float,
         max_output: float = 255.0,
         max_integral: float = 1000.0,
+        deadband_static: float | None = None,
+        deadband_kinetic: float | None = None,
+        stop_threshold: float | None = None,
     ) -> None:
-        """Set PID gains for a DC motor. loop_type: 0=position, 1=velocity."""
+        """Set PID gains and optional deadband for a DC motor. loop_type: 0=position, 1=velocity."""
         motor_id = self._require_id("motor_id", motor_id, 1, 4)
         loop_type = self._require_enum("loop_type", loop_type, DCPidLoop)
-        msg = DCPidSet()
-        msg.motor_number  = motor_id
-        msg.loop_type     = loop_type
-        msg.kp            = float(kp)
-        msg.ki            = float(ki)
-        msg.kd            = float(kd)
-        msg.max_output    = float(max_output)
-        msg.max_integral  = float(max_integral)
+        
+        # Update cache immediately to prevent race conditions
+        with self._lock:
+            existing = self._dc_pid_cache.get((motor_id, int(loop_type)))
+            msg = DCPidSet()
+            msg.motor_number  = motor_id
+            msg.loop_type     = loop_type
+            msg.kp            = float(kp)
+            msg.ki            = float(ki)
+            msg.kd            = float(kd)
+            msg.max_output    = float(max_output)
+            msg.max_integral  = float(max_integral)
+            
+            # Preserve or update deadband fields
+            if deadband_static is not None:
+                msg.deadband_static = float(deadband_static)
+            elif existing:
+                msg.deadband_static = float(existing.deadband_static)
+            else:
+                msg.deadband_static = 0.0
+
+            if deadband_kinetic is not None:
+                msg.deadband_kinetic = float(deadband_kinetic)
+            elif existing:
+                msg.deadband_kinetic = float(existing.deadband_kinetic)
+            else:
+                msg.deadband_kinetic = 0.0
+
+            if stop_threshold is not None:
+                msg.stop_threshold = float(stop_threshold)
+            elif existing:
+                msg.stop_threshold = float(existing.stop_threshold)
+            else:
+                msg.stop_threshold = 0.0
+
+            # Update cache with a mock DCPid message (or similar enough for get_pid)
+            cache_entry = DCPid()
+            cache_entry.motor_number = msg.motor_number
+            cache_entry.loop_type = msg.loop_type
+            cache_entry.kp = msg.kp
+            cache_entry.ki = msg.ki
+            cache_entry.kd = msg.kd
+            cache_entry.max_output = msg.max_output
+            cache_entry.max_integral = msg.max_integral
+            cache_entry.deadband_static = msg.deadband_static
+            cache_entry.deadband_kinetic = msg.deadband_kinetic
+            cache_entry.stop_threshold = msg.stop_threshold
+            self._dc_pid_cache[(motor_id, int(loop_type))] = cache_entry
+
         self._dc_pid_set.publish(msg)
 
     def request_pid(self, motor_id: int, loop_type: DCPidLoop | int) -> None:
@@ -315,25 +359,26 @@ class HardwareMixin:
         motor_id = self._require_id("motor_id", motor_id, 1, 4)
         loop_type = self._require_enum("loop_type", loop_type, DCPidLoop)
         with self._lock:
-            return self._dc_pid_cache.get((motor_id, loop_type))
+            return self._dc_pid_cache.get((motor_id, int(loop_type)))
 
     def set_deadband(self, motor_id: int, deadband_static: float, deadband_kinetic: float, stop_threshold: float = 50.0) -> None:
         """Set static/kinetic deadband and stopping threshold for a DC motor."""
         motor_id = self._require_id("motor_id", motor_id, 1, 4)
-        # Use velocity loop cache to preserve PID gains if possible
         pid = self.get_pid(motor_id, DCPidLoop.VELOCITY)
-        msg = DCPidSet()
-        msg.motor_number  = motor_id
-        msg.loop_type     = DCPidLoop.VELOCITY
-        msg.kp            = float(pid.kp) if pid else 0.0
-        msg.ki            = float(pid.ki) if pid else 0.0
-        msg.kd            = float(pid.kd) if pid else 0.0
-        msg.max_output    = float(pid.max_output) if pid else 255.0
-        msg.max_integral  = float(pid.max_integral) if pid else 1000.0
-        msg.deadband_static = float(deadband_static)
-        msg.deadband_kinetic = float(deadband_kinetic)
-        msg.stop_threshold = float(stop_threshold)
-        self._dc_pid_set.publish(msg)
+        
+        # Use set_pid_gains to handle cache update and publishing consistently
+        self.set_pid_gains(
+            motor_id=motor_id,
+            loop_type=DCPidLoop.VELOCITY,
+            kp=pid.kp if pid else 0.0,
+            ki=pid.ki if pid else 0.0,
+            kd=pid.kd if pid else 0.0,
+            max_output=pid.max_output if pid else 255.0,
+            max_integral=pid.max_integral if pid else 1000.0,
+            deadband_static=deadband_static,
+            deadband_kinetic=deadband_kinetic,
+            stop_threshold=stop_threshold
+        )
 
     def get_dc_state(self) -> DCStateAll:
         """Return cached DC motor state (position, velocity, mode, etc.)."""
