@@ -138,37 +138,37 @@ elif MODE == "manip_nav":
             "path_planner": "pp",
             "vision": "burger_bun",
             "waypoints": cp.WP_BURGER_BUN_1, 
-            # "goal_heading": 180.0
+            "goal_heading": 180.0
         },
-        # {
-        #     "state": "MANIP",
-        #     "command": "pick",
-        #     "ingredient": "bun"
-        # },
+        {
+            "state": "MANIP",
+            "command": "pick",
+            "ingredient": "bun"
+        },
         {
             "state": "NAV",
             "path_planner": "pp",
             "vision": "burger_patty",
             "waypoints": cp.WP_BURGER_PATTY,
-            # "goal_heading": 180.0
+            "goal_heading": 180.0
         },
-        # {
-        #     "state": "MANIP",
-        #     "command": "pick",
-        #     "ingredient": "patty"
-        # },
+        {
+            "state": "MANIP",
+            "command": "pick",
+            "ingredient": "patty"
+        },
         {
             "state": "NAV",
             "path_planner": "pp",
             "vision": "burger_bun",
             "waypoints": cp.WP_BURGER_BUN_2,
-            # "goal_heading": 180.0
+            "goal_heading": 180.0
         },
-        # {
-        #     "state": "MANIP", 
-        #     "command": "pick", 
-        #     "ingredient": "bun"
-        # },
+        {
+            "state": "MANIP", 
+            "command": "pick", 
+            "ingredient": "bun"
+        },
         {
             "state": "NAV", 
             "path_planner": "pp", 
@@ -187,11 +187,12 @@ elif MODE == "manip_nav":
         {
             "state": "NAV", 
             "path_planner": "pp",
-            "waypoints": [cp.WP5]
+            "waypoints": [cp.WP5],
+            "goal_heading": 0.0
         },
-        # {
-        #     "state": "MANIP", "command": "place"
-        # }
+        {
+            "state": "MANIP", "command": "place"
+        }
 
     ]
 
