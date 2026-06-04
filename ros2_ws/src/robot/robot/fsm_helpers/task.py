@@ -14,6 +14,7 @@ import robot.fsm_helpers.burgerbot_parameters as bp
 import robot.fsm_helpers.course_parameters as cp
 import robot.fsm_helpers.vision_helpers as vh
 import robot.fsm_helpers.firmware_helpers as fh
+import robot.fsm_helpers.ingredient_helpers as ih
 
 ENABLE_CAM = True
 
@@ -345,26 +346,34 @@ class ManipTask(Task):
         command = params.get("command")
         if command == "pick":
             self._sequence = bp.PICK_SEQUENCE
-            self._raise_steps = hm.LIFT_BUFFER_STEPS
+            ingredient = params.get("ingredient")
+            self._raise_steps = hm.LIFT_LIFTOFF_STEPS
+            if ingredient == "bun":
+                self._raise_steps -= ih.Bun.HEIGHT_STEPS
+            elif ingredient == "patty":
+                self._raise_steps -= ih.Patty.HEIGHT_STEPS
+
         elif command == "place":
             self._sequence = bp.PLACE_SEQUENCE
-            self._raise_steps = 0
+            self._raise_steps = hm.LIFT_LIFTOFF_STEPS
             for ingredient in self._mission_data["burger_stack"]:
                 if ingredient == "bun":
-                    self._raise_steps += 1000 # TODO: Tune (HIGH)
+                    self._raise_steps -= ih.Bun.HEIGHT_STEPS
                 elif ingredient == "patty":
-                    self._raise_steps += 1000 # TODO: Tune (HIGH)
+                    self._raise_steps -= ih.Patty.HEIGHT_STEPS
         else:
             self._sequence = []
             self._is_done = True
 
         self._ingredient = params.get("ingredient")
         if self._ingredient == "bun":
-            self._level_height = hm.LIFT_EXTEND_STEPS_BUN
+            self._level_height = hm.LIFT_LIFTOFF_STEPS - ih.Bun.HEIGHT_STEPS
             self._close_deg = hm.GRIPPER_CLOSE_DEG_BUN
         elif self._ingredient == "patty":
-            self._level_height = hm.LIFT_EXTEND_STEPS_PATTY
+            self._level_height = hm.LIFT_LIFTOFF_STEPS - ih.Patty.HEIGHT_STEPS
             self._close_deg = hm.GRIPPER_CLOSE_DEG_PATTY
+        elif command == "place":
+            self._level_height = -600 # TODO: Add parameter (LOW)
         
         self._idx = 0
         self._handle = None
@@ -429,7 +438,7 @@ class ManipTask(Task):
             elif stage == bp.ManipStage.LOWER:
                 self._handle = fh.move_lift(
                     robot=self._robot,
-                    position=hm.LIFT_LOWER_STEPS,
+                    position=hm.LIFT_LIFTOFF_STEPS,
                     move_type=hm.StepMoveType.ABSOLUTE,
                     disable_on_done=False
                 )

@@ -171,13 +171,10 @@ GRIPPER_SPEED = 40.0        # dev/s TODO: Tune (HIGH)
 
 # Stepper 1 — lift
 LIFT_STEPPER_ID = Stepper.STEPPER_1
-LIFT_EXTEND_STEPS_BUN = -5000  # abs TODO: Measure (Above ingredient)
-LIFT_EXTEND_STEPS_PATTY = -6000  # abs TODO: Measure (Above ingredient)
-LIFT_LOWER_STEPS = -200     # abs TODO: Measure (Just a little above the table/lim switch)
-LIFT_BUFFER_STEPS = -7000   # abs TODO: Measure (Raise just enough to bring ingredient off table)
-LIFT_MAX_VELOCITY = 5000    # TODO: Verify (LOW)
-LIFT_ACCELERATION = 1200    # TODO: Verify (LOW)
-LIFT_HOME_VELOCITY = 2500   # TODO: Verify (MED)
+LIFT_LIFTOFF_STEPS = -200   # abs
+LIFT_MAX_VELOCITY = 6000    # TODO: Verify (LOW)
+LIFT_ACCELERATION = 1800    # TODO: Verify (LOW)
+LIFT_HOME_VELOCITY = 3500   # TODO: Verify (MED)
 LIFT_MOVE_TIMEOUT_S = 10.0
 
 # Other limit switches
