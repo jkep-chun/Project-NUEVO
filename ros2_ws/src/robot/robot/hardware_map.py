@@ -184,7 +184,7 @@ LIFT_MOVE_TIMEOUT_S = 10.0
 TABLE_LIMIT = Limit.LIM_3   # TODO: Verify (HIGH)
 
 # PID Gains
-WHEEL_VEL_PID = (0.1, 0.0, 0.0) # (P, I, D) TODO: Tune to new controller (MED)
+WHEEL_VEL_PID = (0.15, 0.06, 0.0) # (P, I, D) TODO: Tune to new controller (MED)
 DB_STATIC = 100 # PWM
 DB_KINETIC = 90 # PWM
 STOP_THRESHOLD = 50 # ticks/sec ~ 8mm/s TODO: Tune (LOW)

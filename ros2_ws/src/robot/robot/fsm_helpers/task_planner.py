@@ -130,18 +130,24 @@ elif MODE == "helpers":
 
 elif MODE == "manip_nav":
     tasks = [
-        {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": [(0,0)], "goal_heading": 0.0},
-        {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": [(1*SQ,0)], "goal_heading": 90.0},
-        {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": [(1*SQ,1*SQ)], "goal_heading": 180.0},
-        {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": [(0,1*SQ)], "goal_heading": -90.0},
-        {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": [(0,0)]},
-        # {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": cp.WP_BURGER_BUN_1, "goal_heading": 180.0},
+        {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": cp.WP_BURGER_BUN_1, 
+        # "goal_heading": 180.0
+        },
         # {"state": "MANIP", "command": "pick", "ingredient": "bun"},
-        # {"state": "NAV", "path_planner": "pp", "vision": "burger_patty", "waypoints": cp.WP_BURGER_PATTY, "goal_heading": 180.0},
+        {"state": "NAV", "path_planner": "pp", "vision": "burger_patty", "waypoints": cp.WP_BURGER_PATTY,
+        # "goal_heading": 180.0
+        },
         # {"state": "MANIP", "command": "pick", "ingredient": "patty"},
-        # {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": cp.WP_BURGER_BUN_2, "goal_heading": 180.0},
+        {"state": "NAV", "path_planner": "pp", "vision": "burger_bun", "waypoints": cp.WP_BURGER_BUN_2,
+        # "goal_heading": 180.0
+        },
         # {"state": "MANIP", "command": "pick", "ingredient": "bun"},
-        # {"state": "NAV", "path_planner": "pp", "waypoints": [cp.WP1]},
+        {"state": "NAV", "path_planner": "pp", "waypoints": [cp.WP1, cp.WP2, cp.WP3, cp.WP4]},
+        {"state": "NAV", "path_planner": "lapf", "vision": "face", "waypoints": [cp.WP4B, cp.WP_CUSTOMER_ID]},
+        # {"state": "IDENT"},
+        {"state": "NAV", "path_planner": "pp", "waypoints": [cp.WP5]},
+        # {"state": "MANIP", "command": "place"}
+
     ]
 
 elif MODE == "LAPF_TO_IDENT":

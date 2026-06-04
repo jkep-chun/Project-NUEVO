@@ -417,7 +417,7 @@ class ManipTask(Task):
                     # Retrieve the last waypoint of the last navigation task
                     # This represents the pose before the 'FORWARD' approach stage
                     last_wp = self._mission_data["waypoints"][-1]
-                    backoff_distance = math.dist([x, y], last_wp)
+                    backoff_distance = math.dist([x, y], last_wp) + 35.0 # TODO: GET RID?
                 
                 print(f"[ManipTask] Retreating {backoff_distance:.1f} mm")
                 self._handle = self._robot.move_backward(
