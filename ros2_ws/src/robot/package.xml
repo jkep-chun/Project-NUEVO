@@ -11,6 +11,9 @@
 
   <depend>rclpy</depend>
   <depend>bridge_interfaces</depend>
+  <depend>nav_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>tf2_ros</depend>
   <exec_depend>rplidar_ros</exec_depend>
   <exec_depend>sensors</exec_depend>
 
