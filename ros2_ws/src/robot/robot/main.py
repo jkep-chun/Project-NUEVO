@@ -45,7 +45,7 @@ class MissionFSM(RobotFSM):
         self.add_transition("EXECUTE", "e-stop", "ERROR")
         self.add_transition("EXECUTE", "to_done", "DONE")
         self.add_transition("EXECUTE", "error", "ERROR")
-        self.add_transition("DONE", "to_init", "INIT")
+        self.add_transition("DONE", "to_init", "INIT", action=self._reset_mission_data)
 
         # SQLITE3 LOGGING SETUP
         self.conn = None
@@ -98,6 +98,15 @@ class MissionFSM(RobotFSM):
         self.task_idx += 1
         print(f"Advancing to task {self.task_idx}...")
         self._log(event="ADVANCE_TASK")
+
+    def _reset_mission_data(self) -> None:
+        self.mission_data = {
+            "waypoints": [],
+            "vertices": [],
+            "burger_stack": [],
+            "delivery_status": False,
+            "matched_customer": None
+        }
 
     def on_enter(self, state: str) -> None:
         self._log(event=f"ENTER_{state}")
