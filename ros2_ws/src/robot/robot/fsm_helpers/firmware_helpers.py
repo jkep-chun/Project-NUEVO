@@ -363,7 +363,7 @@ def home_gripper(robot: Robot) -> ServoHomingHandle:
         robot=robot,
         servo_id=hm.GRIPPER_SERVO_ID,
         limit_id=hm.GRIPPER_LIMIT,
-        home_velocity=hm.GRIPPER_HOME_SPEED
+        home_velocity=hm.GRIPPER_SPEED
     )
 
 

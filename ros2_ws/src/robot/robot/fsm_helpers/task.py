@@ -361,10 +361,10 @@ class ManipTask(Task):
         self._ingredient = params.get("ingredient")
         if self._ingredient == "bun":
             self._level_height = hm.LIFT_LIFTOFF_STEPS - ih.Bun.HEIGHT_STEPS
-            self._close_deg = hm.GRIPPER_CLOSE_DEG_BUN
+            self._close_deg = ih.Bun.GRIP_ANGLE
         elif self._ingredient == "patty":
             self._level_height = hm.LIFT_LIFTOFF_STEPS - ih.Patty.HEIGHT_STEPS
-            self._close_deg = hm.GRIPPER_CLOSE_DEG_PATTY
+            self._close_deg = ih.Patty.GRIP_ANGLE
         elif command == "place":
             self._level_height = -600 # TODO: Add parameter (LOW)
         
