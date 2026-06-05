@@ -6,35 +6,14 @@ from robot.fsm_helpers import course_parameters as cp
 from robot.fsm_helpers.course_parameters import SQ
 
 MODE = "manip_nav"
+# MODE = "RANDOM"
 
 if MODE == "RANDOM":
     tasks = [{
         "state": "NAV",
         "path_planner": "pp",
-        # "waypoints": [cp.WP1, cp.WP2, cp.WP3, cp.WP4],
-        "waypoints": [(0, SQ), (SQ, SQ)],
-        "goal_heading": 90.0
+        "waypoints": [(0, 10*24*25.4)],
     },
-    # {
-    #     "state": "NAV",
-    #     "path_planner": "lapf",
-    #     "waypoints": [cp.WP_CUSTOMER_ID],
-    #     "goal_heading": 0.0
-    # },
-    # {
-    #     "state": "IDENT",
-    # },
-    # {
-    #     "state": "NAV",
-    #     "path_planner": "pp",
-    #     "waypoints": [cp.WP5],
-    #     "goal_heading": 0.0
-    # },
-    # {
-    #     "state": "NAV",
-    #     "path_planner": "pp",
-    #     "waypoints": [cp.WP6]
-    # },
     ]
 
 elif MODE == "vel_profile_lapf":
@@ -138,37 +117,37 @@ elif MODE == "manip_nav":
             "path_planner": "pp",
             "vision": "burger_bun",
             "waypoints": cp.WP_BURGER_BUN_1, 
-            "goal_heading": 180.0
+            # "goal_heading": 180.0
         },
-        {
-            "state": "MANIP",
-            "command": "pick",
-            "ingredient": "bun"
-        },
+        # {
+        #     "state": "MANIP",
+        #     "command": "pick",
+        #     "ingredient": "bun"
+        # },
         {
             "state": "NAV",
             "path_planner": "pp",
             "vision": "burger_patty",
             "waypoints": cp.WP_BURGER_PATTY,
-            "goal_heading": 180.0
+            # "goal_heading": 180.0
         },
-        {
-            "state": "MANIP",
-            "command": "pick",
-            "ingredient": "patty"
-        },
+        # {
+        #     "state": "MANIP",
+        #     "command": "pick",
+        #     "ingredient": "patty"
+        # },
         {
             "state": "NAV",
             "path_planner": "pp",
             "vision": "burger_bun",
             "waypoints": cp.WP_BURGER_BUN_2,
-            "goal_heading": 180.0
+            # "goal_heading": 180.0
         },
-        {
-            "state": "MANIP", 
-            "command": "pick", 
-            "ingredient": "bun"
-        },
+        # {
+        #     "state": "MANIP", 
+        #     "command": "pick", 
+        #     "ingredient": "bun"
+        # },
         {
             "state": "NAV", 
             "path_planner": "pp", 
@@ -190,10 +169,9 @@ elif MODE == "manip_nav":
             "waypoints": [cp.WP5],
             "goal_heading": 0.0
         },
-        {
-            "state": "MANIP", "command": "place"
-        }
-
+        # {
+        #     "state": "MANIP", "command": "place"
+        # }
     ]
 
 elif MODE == "LAPF_TO_IDENT":
@@ -238,3 +216,11 @@ elif MODE == "FINAL":
         {"state": "NAV", "path_planner": "pp", "vision": "stop_sign", "waypoints": cp.WP_STOP_SIGN},
         {"state": "NAV", "path_planner": "pp", "waypoints": cp.WP5}
     ]
+
+tasks = [
+    {
+        "state": "NAV",
+        "path_planner": "pp",
+        "waypoints": [(0, 10*24*25.4)]
+    }
+]
