@@ -47,6 +47,12 @@ def configure_robot(robot: Robot) -> None:
         robot.enable_vision()
         print("[sensor] vision enabled — subscribing to /vision/detections")
 
+    robot.step_set_config(
+        stepper_id=hm.LIFT_STEPPER_ID,
+        max_velocity=hm.LIFT_MAX_VELOCITY,
+        acceleration=hm.LIFT_ACCELERATION
+    )
+
 
 def start_robot(robot: Robot) -> None:
     current = robot.get_state()
