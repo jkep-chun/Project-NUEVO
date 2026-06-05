@@ -34,10 +34,6 @@ class MissionFSM(RobotFSM):
             "matched_customer": None
         }
 
-        # Motion handles (mostly managed by tasks now, but kept for homing)
-        self.homing_lift_handle = None
-        self.homing_gripper_handle = None
-
         # Execution
         self.timer_start = None
         self.execution_print_period = 1.0
@@ -45,8 +41,6 @@ class MissionFSM(RobotFSM):
         
         # Transitions
         self.add_transition("INIT", "to_execute", "EXECUTE")
-        self.add_transition("INIT", "to_homing", "HOMING")
-        self.add_transition("HOMING", "to_init", "INIT")
         self.add_transition("EXECUTE", "next", "EXECUTE", action=self._advance_task)
         self.add_transition("EXECUTE", "e-stop", "ERROR")
         self.add_transition("EXECUTE", "to_done", "DONE")
@@ -118,14 +112,8 @@ class MissionFSM(RobotFSM):
             fh.reset_mission_pose(self.robot)
             print(
                 "\n>>> INIT - FIRMWARE RUNNING" \
-                "\n    BTN_1 -> EXECUTE" \
-                "\n    BTN_2 -> HOMING"
+                "\n    BTN_1 -> EXECUTE"
             )
-
-        elif state == "HOMING":
-            self.homing_lift_handle = fh.home_lift(self.robot)
-            self.homing_gripper_handle = fh.home_gripper(self.robot)
-            print("\n>>> HOMING - BEGIN SEQUENCE")
 
         elif state == "EXECUTE":
             self.timer_start = time.monotonic() # Reset timer for the new task
@@ -246,17 +234,6 @@ class MissionFSM(RobotFSM):
         if state_str == "INIT":
             if self.robot.was_button_pressed(Button.BTN_1):
                 self.trigger("to_execute")
-            elif self.robot.was_button_pressed(Button.BTN_2):
-                self.trigger("to_homing")
-
-        elif state_str == "HOMING":
-             # Separate from if statement logic to ensure each .is_done is called
-            lift_done = self.homing_lift_handle.is_done()
-            grip_done = self.homing_gripper_handle.is_done()
-            if lift_done and grip_done:
-                self.homing_lift_handle = None
-                self.homing_gripper_handle = None
-                self.trigger("to_init")
         
         elif state_str == "EXECUTE":
             # BTN_1 skip check

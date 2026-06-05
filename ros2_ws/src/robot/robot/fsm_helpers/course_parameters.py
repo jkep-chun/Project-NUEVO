@@ -2,9 +2,9 @@
 Course-specific geometry
 """
 # SQ = 609.6
-SQ = 600.456 # Length of one square in mm
+SQ = 605.2 # Length of one square in mm
 
-EXTRA = 25.0 # Over ramp (mm) TODO: Tune (LOW)
+EXTRA = 25.0 # Over ramp (mm)
 
 MAX_TURN_FOR_TRAFFIC_LIGHT_DEG = 30 # TODO: Verify (HIGH)
 
