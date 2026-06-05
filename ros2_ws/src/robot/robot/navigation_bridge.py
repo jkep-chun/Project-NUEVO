@@ -37,7 +37,7 @@ class NavigationBridge(Node):
         # Convert position mm -> m
         odom.pose.pose.position.x = msg.x / 1000.0
         odom.pose.pose.position.y = msg.y / 1000.0
-        odom.pose.pose.position.z = 0
+        odom.pose.pose.position.z = 0.0
 
         # Sensor_kinematics conversion to quaternion
         odom.pose.pose.orientation.x = 0.0
