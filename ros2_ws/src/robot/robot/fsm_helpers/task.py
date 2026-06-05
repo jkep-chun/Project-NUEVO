@@ -257,85 +257,9 @@ class NavTask(Task):
         super().cancel()
 
     def on_exit(self) -> None:
-        """
-        Write waypoint to mission data
-
-        Save a plot of the robot's trajectory and waypoints to a .jpg file
-        in /runtime_output/plots/ upon exiting the navigation task.
-        """
+        """Write waypoints and vertices to mission data."""
         for wp in self._waypoints: self._mission_data["waypoints"].append(wp)
         for v in self._vertices: self._mission_data["vertices"].append(v)
-
-        try:
-            import matplotlib
-            matplotlib.use('Agg') # Headless-safe
-            import matplotlib.pyplot as plt
-        except ImportError:
-            print("[NavTask] matplotlib not installed; skipping path plot")
-            return
-
-        # Trajectory data from Robot (mm)
-        odom = list(self._robot._odom_traj)[self._start_traj_idx:]
-        fused = list(self._robot._fused_traj)[self._start_traj_idx:]
-        
-        if not odom and not fused:
-            return
-
-        plt.figure(figsize=(10, 8))
-        
-        # Plot raw odometry (light blue)
-        if odom:
-            ox, oy = zip(*odom)
-            plt.plot(ox, oy, label='Odometry (Raw)', color='steelblue', alpha=0.4, linewidth=1)
-        
-        # Plot fused trajectory (bold orange)
-        if fused:
-            fx, fy = zip(*fused)
-            plt.plot(fx, fy, label='Fused Trajectory', color='darkorange', linewidth=2)
-
-        # Plot current task waypoints (densified path)
-        if self._waypoints is not None and len(self._waypoints) > 0:
-            wx = [wp[0] for wp in self._waypoints]
-            wy = [wp[1] for wp in self._waypoints]
-            plt.scatter(wx, wy, color='green', marker='o', s=40, label='Waypoint', zorder=5)
-            
-            if len(wx) > 0:
-                plt.text(wx[0], wy[0], ' Start', color='green', verticalalignment='bottom', fontsize=9)
-                plt.text(wx[-1], wy[-1], ' End', color='red', verticalalignment='bottom', fontsize=9)
-
-        # Plot current task vertices (original given points)
-        if self._vertices is not None and len(self._vertices) > 0:
-            vx = [v[0] for v in self._vertices]
-            vy = [v[1] for v in self._vertices]
-            plt.scatter(vx, vy, color='purple', marker='o', s=65, label='Vertices', zorder=4)
-
-        # Current robot pose
-        curr_x, curr_y, _ = self._robot.get_pose()
-        plt.scatter([curr_x], [curr_y], color='red', marker='X', s=100, label='Final Position', zorder=10)
-
-        plt.xlabel('X (mm)')
-        plt.ylabel('Y (mm)')
-        plt.title(f'Robot Navigation Trajectory ({self._path_planner.upper()})')
-        plt.legend()
-        plt.axis('equal')
-        plt.grid(True)
-        
-        # Determine save directory (prioritize Docker /runtime_output)
-        save_dir = "/runtime_output/plots"
-        if not os.path.exists(save_dir):
-            # Fallback to local project structure
-            save_dir = "ros2_ws/runtime_output/plots"
-            
-        os.makedirs(save_dir, exist_ok=True)
-        save_path = os.path.join(save_dir, "final_trajectory.jpg")
-        
-        try:
-            plt.savefig(save_path, format='jpg', dpi=150)
-            print(f"[NavTask] Trajectory plot saved to {save_path}")
-        except Exception as e:
-            print(f"[NavTask] Error saving plot: {e}")
-        finally:
-            plt.close()
 
 
 class WaitTask(Task):
@@ -437,10 +361,10 @@ class ManipTask(Task):
         self._ingredient = params.get("ingredient")
         if self._ingredient == "bun":
             self._level_height = hm.LIFT_LIFTOFF_STEPS - ih.Bun.HEIGHT_STEPS
-            self._close_deg = hm.GRIPPER_CLOSE_DEG_BUN
+            self._close_deg = ih.Bun.GRIP_ANGLE
         elif self._ingredient == "patty":
             self._level_height = hm.LIFT_LIFTOFF_STEPS - ih.Patty.HEIGHT_STEPS
-            self._close_deg = hm.GRIPPER_CLOSE_DEG_PATTY
+            self._close_deg = ih.Patty.GRIP_ANGLE
         elif command == "place":
             self._level_height = -600 # TODO: Add parameter (LOW)
         

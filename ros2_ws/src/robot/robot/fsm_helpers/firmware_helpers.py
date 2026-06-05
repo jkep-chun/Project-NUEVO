@@ -47,6 +47,12 @@ def configure_robot(robot: Robot) -> None:
         robot.enable_vision()
         print("[sensor] vision enabled — subscribing to /vision/detections")
 
+    robot.step_set_config(
+        stepper_id=hm.LIFT_STEPPER_ID,
+        max_velocity=hm.LIFT_VELOCITY,
+        acceleration=hm.LIFT_ACCELERATION
+    )
+
 
 def start_robot(robot: Robot) -> None:
     current = robot.get_state()
@@ -340,7 +346,7 @@ def home_lift(robot: Robot, post_position: int | None = None) -> StepHomingHandl
     robot.step_home(
         hm.LIFT_STEPPER_ID,
         direction=1,
-        home_velocity=hm.LIFT_HOME_VELOCITY,
+        home_velocity=hm.LIFT_VELOCITY,
         blocking=False
     )
     return StepHomingHandle(robot, hm.LIFT_STEPPER_ID, limit_id=hm.Limit.LIM_1, disable_on_done=True, target_position=post_position)
@@ -357,7 +363,7 @@ def home_gripper(robot: Robot) -> ServoHomingHandle:
         robot=robot,
         servo_id=hm.GRIPPER_SERVO_ID,
         limit_id=hm.GRIPPER_LIMIT,
-        home_velocity=hm.GRIPPER_HOME_SPEED
+        home_velocity=hm.GRIPPER_SPEED
     )
 
 
