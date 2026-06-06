@@ -61,7 +61,8 @@ services:
       # ROS_LOCALHOST_ONLY flag and prevents ROS2 nodes from bleeding across
       # RPis on the same network. Cross-machine links such as Jetson GPS use
       # explicit TCP instead of DDS multicast.
-      - ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+      - ROS_DOMAIN_ID=7
+      - ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
       - NUEVO_BRIDGE_SOURCE=/workspace/nuevo_bridge_source
       - NUEVO_USERS_FILE=/data/users.json
       - NUEVO_SERIAL_PORT=/dev/ttyAMA0

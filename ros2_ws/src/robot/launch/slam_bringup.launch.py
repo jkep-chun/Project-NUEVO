@@ -23,5 +23,10 @@ def generate_launch_description():
             executable='async_slam_toolbox_node',
             name='slam_toolbox',
             output='screen'
+        ),
+        Node(
+            package='foxglove_bridge',
+            executable='foxglove_bridge_node',
+            name='foxglove_bridge'
         )
     ])

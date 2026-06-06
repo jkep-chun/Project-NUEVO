@@ -61,6 +61,7 @@ RUN apt-get update && apt-get install -y \
     ros-jazzy-geometry-msgs \
     ros-jazzy-tf2-ros \
     ros-jazzy-slam-toolbox \
+    ros-jazzy-foxglove-bridge \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Initialize rosdep ─────────────────────────────────────────────────────────
