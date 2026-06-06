@@ -30,7 +30,7 @@ class NavigationBridge(Node):
     def _callback(self, msg: SensorKinematics):
         odom = Odometry()
 
-        odom.header.stamp = self.get_clock().now().to_msg()
+        odom.header.stamp = msg.header.stamp
         odom.header.frame_id = 'odom'
         odom.child_frame_id = 'base_link'
 
