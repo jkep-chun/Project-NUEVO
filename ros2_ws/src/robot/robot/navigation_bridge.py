@@ -1,33 +1,36 @@
 import math
 import rclpy
+from robot.hardware_map import WHEEL_BASE, WHEEL_DIAMETER, LEFT_WHEEL_MOTOR, RIGHT_WHEEL_MOTOR, LEFT_WHEEL_DIR_INVERTED, RIGHT_WHEEL_DIR_INVERTED
+from robot.robot import Robot
 from rclpy.node import Node
-from bridge_interfaces.msg import SensorKinematics
-from nav_msgs.msg import Odometry
 from tf2_ros import TransformBroadcaster
-from geometry_msgs.msg import TransformStamped
+
+from bridge_interfaces.msg import SensorKinematics, DCSetVelocity
+from nav_msgs.msg import Odometry
+from geometry_msgs.msg import TransformStamped, Twist
 
 class NavigationBridge(Node):
     def __init__(self):
         super().__init__('navigation_bridge')
 
-        self._sub = self.create_subscription(
-            msg_type=SensorKinematics,
-            topic='/sensor_kinematics',
-            callback=self._callback,
-            qos_profile=10
-        )
+        self.WHEEL_BASE_M = WHEEL_BASE / 1000.0
+        self.WHEEL_DIAMETER_M = WHEEL_DIAMETER / 1000.0
+        self.ENCODER_PPR = Robot.ENCODER_PPR
+        self.ticks_per_m = self.ENCODER_PPR / (self.WHEEL_DIAMETER_M * math.pi)
 
-        self._pub = self.create_publisher(
-            msg_type=Odometry,
-            topic='/odom',
-            qos_profile=10
-        )
+        # Subscribers
+        self._sub_sensor_kinematics = self.create_subscription(SensorKinematics, '/sensor_kinematics', self._on_sensor_kinematics, 10)
+        self._sub_cmd_vel = self.create_subscription(Twist, '/cmd_vel', self._on_cmd_twist, 10)
+
+        # Publishers
+        self._pub_odom = self.create_publisher(Odometry, '/odom', 10)
+        self._pub_cmd_vel = self.create_publisher(DCSetVelocity, '/dc_set_velocity', 10)
 
         self._tf_broadcaster = TransformBroadcaster(self)
 
         self.get_logger().info("Navigation Bridge Node Started")
     
-    def _callback(self, msg: SensorKinematics):
+    def _on_sensor_kinematics(self, msg: SensorKinematics):
         odom = Odometry()
 
         odom.header.stamp = msg.header.stamp
@@ -68,7 +71,29 @@ class NavigationBridge(Node):
         self._tf_broadcaster.sendTransform(t)
 
         # Publish the configured message
-        self._pub.publish(odom)
+        self._pub_odom.publish(odom)
+
+    def _on_cmd_twist(self, msg: Twist):
+        linear = msg.linear.x
+        angular = msg.angular.z
+        
+        # Extract differential drive velocities
+        l_vel_m_s = linear - (angular * self.WHEEL_BASE_M / 2.0)
+        r_vel_m_s = linear + (angular * self.WHEEL_BASE_M / 2.0)
+
+        if LEFT_WHEEL_DIR_INVERTED: l_vel_m_s = -l_vel_m_s
+        if RIGHT_WHEEL_DIR_INVERTED: r_vel_m_s = -r_vel_m_s
+
+        # Publish
+        l_msg = DCSetVelocity()
+        l_msg.motor_number = LEFT_WHEEL_MOTOR
+        l_msg.target_ticks = int(l_vel_m_s * self.ticks_per_m)
+        self._pub_cmd_vel.publish(l_msg)
+
+        r_msg = DCSetVelocity()
+        r_msg.motor_number = RIGHT_WHEEL_MOTOR
+        r_msg.target_ticks = int(r_vel_m_s * self.ticks_per_m)
+        self._pub_cmd_vel.publish(r_msg)
         
 
 def main(args=None):
