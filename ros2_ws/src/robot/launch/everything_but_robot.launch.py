@@ -16,7 +16,7 @@ def generate_launch_description():
             launch_arguments={
                 "serial_port": "/dev/rplidar",
                 "serial_baudrate": "460800",
-                "frame_id": "laser_frame",
+                "frame_id": "laser",
                 "topic_name": "scan",
                 "scan_mode": "Standard",
                 "angle_compensate": "true",

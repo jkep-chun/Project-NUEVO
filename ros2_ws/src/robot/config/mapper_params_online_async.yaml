@@ -2,7 +2,7 @@ slam_toolbox:
   ros__parameters:
 
     # Solver Parameters (Aztec is standard for 2D)
-    solver_plugin: solver_plugins::AztecSolver
+    solver_plugin: solver_plugins::CeresSolver
     ceres_loss_function: None
     ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
     ceres_preconditioner: SCHUR_JACOBI
