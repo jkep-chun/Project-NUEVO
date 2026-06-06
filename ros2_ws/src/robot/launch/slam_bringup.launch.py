@@ -26,7 +26,7 @@ def generate_launch_description():
         ),
         Node(
             package='foxglove_bridge',
-            executable='foxglove_bridge_node',
+            executable='foxglove_bridge',
             name='foxglove_bridge'
         )
     ])
