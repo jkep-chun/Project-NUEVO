@@ -124,7 +124,8 @@ class MissionFSM(RobotFSM):
             fh.reset_mission_pose(self.robot)
             print(
                 "\n>>> INIT - FIRMWARE RUNNING" \
-                "\n    BTN_1 -> EXECUTE"
+                "\n    BTN_1 -> EXECUTE" \
+                "\n    BTN_2 -> TELEOP"
             )
 
         elif state == "TELEOP":
