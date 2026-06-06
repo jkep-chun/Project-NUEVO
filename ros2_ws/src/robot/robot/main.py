@@ -159,8 +159,7 @@ class MissionFSM(RobotFSM):
                 self.conn = None
             print(
                 "\n>>> DONE - TASKS COMPLETE" \
-                "\n    BTN_1 -> INIT" \
-                "\n    BTN_2 -> TELEOP"
+                "\n    BTN_1 -> INIT"
             )
 
         elif state =="ERROR":
