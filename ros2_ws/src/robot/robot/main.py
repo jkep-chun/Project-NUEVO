@@ -122,6 +122,7 @@ class MissionFSM(RobotFSM):
             print("\n>>> INIT - STARTING ROBOT")
             fh.start_robot(self.robot)
             fh.reset_mission_pose(self.robot)
+            self.robot.stop()
             print(
                 "\n>>> INIT - FIRMWARE RUNNING" \
                 "\n    BTN_1 -> EXECUTE" \
@@ -131,7 +132,6 @@ class MissionFSM(RobotFSM):
         elif state == "TELEOP":
             self.robot.enable_motor(hm.LEFT_WHEEL_MOTOR, hm.DCMotorMode.VELOCITY)
             self.robot.enable_motor(hm.RIGHT_WHEEL_MOTOR, hm.DCMotorMode.VELOCITY)
-
             print(
                 "\n>>> TELEOP - CONTROL VIA FOXGLOVE" \
                 "\n    BTN_1 -> INIT"
@@ -169,13 +169,6 @@ class MissionFSM(RobotFSM):
                 self.conn = None
             self.robot.estop()
             print("\n>>> ERROR (CTRL + C TO TERMINATE NODE)")
-
-    def on_exit(self, state: str):
-        self._log(event=f"EXIT_{state}")
-
-        if state == "TELEOP":
-            self.robot.stop()
-
 
     def _plot_trajectory(self) -> None:
         """
