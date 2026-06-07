@@ -4,6 +4,8 @@ Course-specific geometry
 # SQ = 609.6
 SQ = 605.2 # Length of one square in mm
 
+INIT_POSE         = (0.0, 0.0, 90.0)
+
 EXTRA = 25.0 # Over ramp (mm)
 
 MAX_TURN_FOR_TRAFFIC_LIGHT_DEG = 30 # TODO: Verify (HIGH)

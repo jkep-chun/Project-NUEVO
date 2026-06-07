@@ -266,6 +266,17 @@ class Robot(HardwareMixin, SensorsMixin, NavigationMixin, LegacyMixin):
         self._gps_paused:          bool  = False
         self._gps_subscribed:      bool  = False
 
+        # ── SLAM position fusion ──────────────────────────────────────────────
+        self._slam_x_mm:            float = 0.0
+        self._slam_y_mm:            float = 0.0
+        self._slam_theta:           float = 0.0
+        self._slam_last_time:       float = 0.0
+        self._slam_timeout_s:       float = 1.0
+        self._slam_subscribed:      bool  = False
+        self._slam_paused:          bool  = False
+        self._slam_pos_fusion:      PositionComplementaryFilter = PositionComplementaryFilter(alpha=0.20)
+        self._slam_orientation_fusion: OrientationComplementaryFilter = OrientationComplementaryFilter(alpha=0.20)
+
         # ── Lidar ─────────────────────────────────────────────────────────────
         self._lidar_mount_x_mm:      float = self.LIDAR_MOUNT_X_MM
         self._lidar_mount_y_mm:      float = self.LIDAR_MOUNT_Y_MM

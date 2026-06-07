@@ -5,9 +5,11 @@ import time
 import robot.hardware_map as hm
 import robot.fsm_helpers.burgerbot_parameters as bp
 from robot.robot import FirmwareState, Robot
+from robot.fsm_helpers.course_parameters import INIT_POSE
 
 ENABLE_LIDAR = True
 ENABLE_GPS = False
+ENABLE_SLAM_LOCALIZATION = False
 ENABLE_VISION = True
 
 def configure_robot(robot: Robot) -> None:
@@ -42,6 +44,13 @@ def configure_robot(robot: Robot) -> None:
         robot.set_tracked_tag_id(hm.TAG_ID)
         robot.set_tag_body_offset(hm.TAG_BODY_OFFSET_X_MM, hm.TAG_BODY_OFFSET_Y_MM)
         print(f"[sensor] GPS enabled — tracking ArUco tag {hm.TAG_ID}")
+
+    if ENABLE_SLAM_LOCALIZATION:
+        robot.enable_slam_localization()
+        robot.set_initial_slam_pose(*INIT_POSE)
+        robot.set_slam_position_fusion_alpha(0.10)
+        robot.set_slam_orientation_fusion_alpha(0.10)
+        print("[sensor] SLAM localization enabled")
 
     if ENABLE_VISION:
         robot.enable_vision()

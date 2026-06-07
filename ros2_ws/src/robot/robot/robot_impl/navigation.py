@@ -121,25 +121,63 @@ class NavigationMixin:
 
             linear_vel  = math.hypot(float(msg.vx), float(msg.vy))
             angular_vel = float(msg.v_theta)
+            
+            # --- External Sensor Freshness ---
+            now = _time.monotonic()
             gps_fresh = (
                 self._gps_last_time > 0.0
-                and (_time.monotonic() - self._gps_last_time) < self._gps_timeout_s
+                and (now - self._gps_last_time) < self._gps_timeout_s
             )
-            self._fused_theta = self._orientation_fusion.update(
-                odom_theta  = msg.theta,
-                mag_heading = relative_ahrs,
-                linear_vel  = linear_vel,
-                angular_vel = angular_vel,
-                fused_x     = self._fused_x_mm if gps_fresh else None,
-                fused_y     = self._fused_y_mm if gps_fresh else None,
+            slam_fresh = (
+                self._slam_last_time > 0.0
+                and (now - self._slam_last_time) < self._slam_timeout_s
             )
+
+            # --- HEADING FUSION ---
+            # Priority 1: SLAM heading
+            # Priority 2: IMU heading
+            # Priority 3: Pure Odometry
+            if slam_fresh:
+                self._fused_theta = self._slam_orientation_fusion.update(
+                    odom_theta  = msg.theta,
+                    mag_heading = self._slam_theta,
+                    linear_vel  = linear_vel,
+                    angular_vel = angular_vel
+                )
+            elif relative_ahrs is not None:
+                self._fused_theta = self._orientation_fusion.update(
+                    odom_theta  = msg.theta,
+                    mag_heading = relative_ahrs,
+                    linear_vel  = linear_vel,
+                    angular_vel = angular_vel,
+                    fused_x     = self._fused_x_mm if (gps_fresh or slam_fresh) else None,
+                    fused_y     = self._fused_y_mm if (gps_fresh or slam_fresh) else None,
+                )
+            else:
+                self._fused_theta = msg.theta
+
+            # --- POSITION FUSION ---
+            # We run BOTH filters in parallel so they both maintain their "anchors"
             gps_x = self._gps_x_mm if gps_fresh else None
             gps_y = self._gps_y_mm if gps_fresh else None
-            self._fused_x_mm, self._fused_y_mm = self._pos_fusion.update(
-                msg.x, msg.y, gps_x, gps_y
-            )
-            if gps_fresh:
+            f_gps_x, f_gps_y = self._pos_fusion.update(msg.x, msg.y, gps_x, gps_y)
+
+            slam_x = self._slam_x_mm if slam_fresh else None
+            slam_y = self._slam_y_mm if slam_fresh else None
+            f_slam_x, f_slam_y = self._slam_pos_fusion.update(msg.x, msg.y, slam_x, slam_y)
+
+            # Selection: Prioritize SLAM, then GPS
+            if slam_fresh:
+                self._fused_x_mm, self._fused_y_mm = f_slam_x, f_slam_y
                 self._fused_pose_available = True
+            elif gps_fresh:
+                self._fused_x_mm, self._fused_y_mm = f_gps_x, f_gps_y
+                self._fused_pose_available = True
+            else:
+                # If nothing is fresh, we dead-reckon from the last good fuse.
+                # We default to the SLAM filter's anchor as it's the most likely "global" map.
+                self._fused_x_mm, self._fused_y_mm = f_slam_x, f_slam_y
+
             _raw_odom  = (float(msg.x), float(msg.y))
             _raw_fused = (self._fused_x_mm, self._fused_y_mm)
 
@@ -151,7 +189,7 @@ class NavigationMixin:
         _fp.x     = float(_raw_fused[0])
         _fp.y     = float(_raw_fused[1])
         _fp.theta = float(self._fused_theta)
-        _fp.gps_active = bool(gps_fresh)
+        _fp.gps_active = bool(gps_fresh or slam_fresh)
         self._pub_fused_pose.publish(_fp)
 
         self._pose_event.set()
@@ -213,9 +251,13 @@ class NavigationMixin:
             self._odom_reset_event.clear()
             self._fused_pose_available = False
             self._gps_last_time = 0.0
+            self._slam_last_time = 0.0
             self._pos_fusion.reset()
+            self._slam_pos_fusion.reset()
             if hasattr(self._orientation_fusion, "reset"):
                 self._orientation_fusion.reset()
+            if hasattr(self._slam_orientation_fusion, "reset"):
+                self._slam_orientation_fusion.reset()
             self._odom_traj.clear()
             self._fused_traj.clear()
         msg = SysOdomReset()
