@@ -132,6 +132,7 @@ class MissionFSM(RobotFSM):
         elif state == "TELEOP":
             self.robot.enable_motor(hm.LEFT_WHEEL_MOTOR, hm.DCMotorMode.VELOCITY)
             self.robot.enable_motor(hm.RIGHT_WHEEL_MOTOR, hm.DCMotorMode.VELOCITY)
+            self.robot.enable_slam_localization()
             print(
                 "\n>>> TELEOP - CONTROL VIA FOXGLOVE" \
                 "\n    BTN_1 -> INIT"
