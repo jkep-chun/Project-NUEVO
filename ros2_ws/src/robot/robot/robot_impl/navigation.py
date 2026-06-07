@@ -125,11 +125,13 @@ class NavigationMixin:
             # --- External Sensor Freshness ---
             now = _time.monotonic()
             gps_fresh = (
-                self._gps_last_time > 0.0
+                not self._gps_paused
+                and self._gps_last_time > 0.0
                 and (now - self._gps_last_time) < self._gps_timeout_s
             )
             slam_fresh = (
-                self._slam_last_time > 0.0
+                not self._slam_paused
+                and self._slam_last_time > 0.0
                 and (now - self._slam_last_time) < self._slam_timeout_s
             )
 

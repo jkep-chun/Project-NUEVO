@@ -110,7 +110,7 @@ class HomeTask(Task):
 
 
 class NavTask(Task):
-    def __init__(self, robot, mission_data, waypoints, goal_heading=None, path_planner="pp", delivery_segment=False):
+    def __init__(self, robot, mission_data, waypoints, goal_heading=None, path_planner="pp", delivery_segment=False, enable_slam_localization=False):
         super().__init__(robot, mission_data)
         # Ensure waypoints is a list of tuples
         if waypoints is not None:
@@ -121,6 +121,12 @@ class NavTask(Task):
         self._goal_heading = goal_heading
         self._path_planner = path_planner
         self._delivery_segment = delivery_segment
+
+        self._enable_slam_localization = enable_slam_localization
+        if self._enable_slam_localization:
+            self._robot.enable_slam_localization()
+        else:
+            self._robot.disable_slam_localization()
 
         self._is_done = False
         self._wp_lapf_idx = 0
@@ -523,6 +529,7 @@ def build_task(robot: Robot, task_dict: dict, mission_data: dict) -> Task:
         waypoints = list(task_dict.get("waypoints", []))
         goal_heading = task_dict.get("goal_heading")
         delivery_segment = False
+        enable_slam_localization = task_dict.get("enable_slam_localization")
 
         # Robustness: Inject customer data BEFORE path generation
         if not mission_data.get("delivery_status"):
@@ -542,7 +549,8 @@ def build_task(robot: Robot, task_dict: dict, mission_data: dict) -> Task:
             waypoints=waypoints,
             goal_heading=goal_heading,
             path_planner=task_dict.get("path_planner", "pp"),
-            delivery_segment=delivery_segment
+            delivery_segment=delivery_segment,
+            enable_slam_localization=enable_slam_localization
         )
     elif state == "WAIT":
         return WaitTask(robot, mission_data, task_dict)

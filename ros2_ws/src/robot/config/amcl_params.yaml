@@ -1,0 +1,54 @@
+amcl:
+  ros__parameters:
+    use_sim_time: False
+    
+    # --- Initial Pose (User specified: +/- 100mm, +/- 20 deg) ---
+    # Adjust x, y, yaw here if your starting position is not (0,0,0)
+    set_initial_pose: True
+    initial_pose:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      yaw: 0.0 # Radians
+    
+    # --- Particle Filter Parameters ---
+    min_particles: 500
+    max_particles: 2000
+    pf_err: 0.02      # Reduced error tolerance for high-res map
+    pf_z: 0.99
+    resample_interval: 1
+    
+    # --- Update thresholds (Tuned for small arena) ---
+    update_min_d: 0.05  # Update every 50mm (user knows pose within 100mm)
+    update_min_a: 0.087 # Update every 5 degrees (~20 deg uncertainty)
+    
+    # --- Map/Frame Parameters ---
+    global_frame_id: "map"
+    odom_frame_id: "odom"
+    base_frame_id: "base_link"
+    map_subscribe_transient_local: True
+    
+    # --- Laser Model Parameters (Tuned for 5mm resolution) ---
+    laser_model_type: "likelihood_field"
+    laser_likelihood_max_dist: 2.0
+    laser_max_range: 12.0
+    laser_min_range: -1.0
+    max_beams: 60
+    z_hit: 0.7        # Higher confidence in lidar hits for clean arena walls
+    z_short: 0.05
+    z_max: 0.05
+    z_rand: 0.2
+    sigma_hit: 0.05   # Tightened for 5mm map resolution (was 0.2)
+    
+    # --- Motion Model ---
+    robot_model_type: "nav2_amcl::DifferentialMotionModel"
+    # Odometry noise (tuned for precision)
+    alpha1: 0.1 
+    alpha2: 0.1
+    alpha3: 0.1
+    alpha4: 0.1
+    
+    # --- Runtime ---
+    transform_tolerance: 0.5
+    save_pose_rate: 0.5
+    scan_topic: scan

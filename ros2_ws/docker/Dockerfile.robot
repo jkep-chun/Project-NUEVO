@@ -62,6 +62,8 @@ RUN apt-get update && apt-get install -y \
     ros-jazzy-tf2-ros \
     ros-jazzy-slam-toolbox \
     ros-jazzy-nav2-map-server \
+    ros-jazzy-nav2-amcl \
+    ros-jazzy-nav2-lifecycle-manager \
     ros-jazzy-foxglove-bridge \
     && rm -rf /var/lib/apt/lists/*
 

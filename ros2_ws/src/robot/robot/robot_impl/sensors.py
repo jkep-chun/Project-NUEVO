@@ -164,6 +164,10 @@ class SensorsMixin:
             self._slam_subscribed = True
         self._slam_paused = False
 
+    def disable_slam_localization(self) -> None:
+        """Pause SLAM updates. Call enable_slam_localization() to resume."""
+        self._slam_paused = True
+
     def set_initial_slam_pose(
         self,
         x: float,
