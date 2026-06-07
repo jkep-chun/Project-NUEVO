@@ -43,7 +43,10 @@ def generate_launch_description():
             name='amcl',
             output='screen',
             parameters=[amcl_config],
-            remappings=[('/amcl_pose', '/pose')]
+            remappings=[
+                ('/amcl_pose', '/pose'),
+                ('initialpose', '/initialpose')
+            ]
         ),
 
         # 5. SLAM Bridge (Converter: m -> mm)
