@@ -146,7 +146,7 @@ RIGHT_WHEEL_MOTOR = Motor.DC_M2
 RIGHT_WHEEL_DIR_INVERTED = True
 
 # Lidar
-LIDAR_MOUNT_X_MM = 187.8 # 235.8 - 48 mm
+LIDAR_MOUNT_X_MM = 182.8 # 235.8 - 48 - 5 mm
 LIDAR_MOUNT_Y_MM = 0.0
 LIDAR_MOUNT_THETA_DEG = 0.0
 LIDAR_RANGE_MIN_MM = 70.0 # Note: C1 Specs: Min range = 50 mm, resolution = 15 mm
