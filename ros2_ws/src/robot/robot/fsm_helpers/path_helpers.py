@@ -13,7 +13,7 @@ def generate_open_rounded_path(vertices, R, ds):
     num_verts = len(vertices)
     rounded_path = []
     
-    if num_verts < 2:
+    if num_verts < 3:
         return vertices
 
     # Start the path exactly at the first vertex

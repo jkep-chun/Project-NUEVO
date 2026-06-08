@@ -29,6 +29,9 @@ ADVANCE_RADIUS_LAPF = WP_SPACING_LAPF*0.4
 
 SLAM_POSITION_FUSION_ALPHA = 0.1 # 0.10
 SLAM_ORIENTATION_FUSION_ALPHA = 0.15 # 0.15
+class HomeStage(IntEnum):
+    HOME = auto()
+    INIT = auto()
 
 class NavStage(IntEnum):
     START_HEADING = auto()
