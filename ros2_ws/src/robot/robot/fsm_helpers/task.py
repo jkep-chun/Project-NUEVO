@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import math
 import time
-import os
 import numpy as np
 
 from robot.fsm_helpers.path_helpers import generate_open_rounded_path
@@ -19,9 +18,10 @@ import robot.fsm_helpers.ingredient_helpers as ih
 ENABLE_CAM = True
 
 class Task:
-    def __init__(self, robot: Robot, mission_data: dict):
+    def __init__(self, robot: Robot, mission_data: dict, params: dict):
         self._robot = robot
         self._mission_data = mission_data
+        self._params = params
 
     def update(self) -> None:
         pass
@@ -41,23 +41,34 @@ class Task:
 
 
 class HomeTask(Task):
-    def __init__(self, robot: Robot, mission_data: dict):
-        super().__init__(robot, mission_data)
+    """Homing has two physical components: the lift (stepper) and gripper (servo), and their sequences are handled in parallel"""
+    
+    def __init__(self, robot: Robot, mission_data: dict, params: dict):
+        super().__init__(robot, mission_data, params)
         self._is_done = False
-        self._stepper_handle = None
+        self._lift_handle = None
         self._gripper_handle = None
-        self._stepper_done = False
+        self._lift_done = False
         self._gripper_done = False
+        self._home_stages = [bp.HomeStage.HOME]
+        self._home_stage_idx = 0
+
+        if self._params.get("lift_init_height"):
+            self._home_stages.append(bp.HomeStage.INIT)
+            self._lift_init_height = self._params["lift_init_height"]
 
     def on_enter(self) -> None:
         print("[HomeTask] ENTER: Homing lift and gripper.")
         
-        # 1. Start lift homing only if not already there
+        # Start lift homing only if not already there
         if self._robot.get_limit(hm.Limit.LIM_1):
             print("[HomeTask] Lift already at home limit.")
-            self._stepper_done = True
+            if self._home_stage_idx < len(self._home_stages) - 1:
+                self._home_stage_idx += 1
+            else:
+                self._lift_done = True
         else:
-            self._stepper_handle = fh.home_lift(self._robot)
+            self._lift_handle = fh.home_lift(self._robot)
         
         # 2. Start gripper homing only if not already there
         if self._robot.get_limit(hm.GRIPPER_LIMIT):
@@ -67,18 +78,39 @@ class HomeTask(Task):
             self._gripper_handle = fh.home_gripper(self._robot)
 
     def update(self) -> None:
+        home_stage = self._home_stages[self._home_stage_idx]
+
         if self._is_done:
             return
 
-        # Check stepper progress
-        if not self._stepper_done:
-            # Fallback: check limit switch directly in case handle hangs
-            if self._robot.get_limit(hm.Limit.LIM_1) or (self._stepper_handle and self._stepper_handle.is_done()):
-                print(f"[HomeTask] Lift homing complete.")
-                if self._stepper_handle:
-                    self._stepper_handle.cancel()
-                    self._stepper_handle = None
-                self._stepper_done = True
+        if not self._lift_done:
+            if home_stage == bp.HomeStage.HOME:
+                if self._robot.get_limit(hm.Limit.LIM_1) or (self._lift_handle and self._lift_handle.is_done()):
+                    print(f"[HomeTask] Lift homing complete.")
+                    if self._lift_handle:
+                        self._lift_handle.cancel()
+                        self._lift_handle = None
+                    if self._home_stage_idx < len(self._home_stages) - 1:
+                        self._home_stage_idx += 1
+                    else:
+                        self._lift_done = True
+            elif home_stage == bp.HomeStage.INIT:
+                if self._lift_handle is None:
+                    print(f"[HomeTask] Lift initialization commencing.")
+                    self._lift_handle  = fh.move_lift(
+                            robot=self._robot,
+                            position=self._lift_init_height,
+                            move_type=hm.StepMoveType.ABSOLUTE,
+                            disable_on_done=False
+                        )
+                elif self._lift_handle and self._lift_handle.is_done():
+                    print(f"[HomeTask] Lift init complete.")
+                    if self._lift_handle:
+                        self._lift_handle.cancel()
+                        self._lift_handle = None
+                    if self._home_stage_idx < len(self._home_stages) - 1:
+                        self._home_stage_idx += 1
+                    else: self._lift_done = True
         
         # Check gripper homing progress
         if not self._gripper_done:
@@ -90,13 +122,13 @@ class HomeTask(Task):
                 self._gripper_done = True
 
         # Task is done when both subsystems have reached home
-        if self._stepper_done and self._gripper_done:
+        if self._lift_done and self._gripper_done:
             self._is_done = True
 
     def cancel(self) -> None:
-        if self._stepper_handle:
-            self._stepper_handle.cancel()
-            self._stepper_handle = None
+        if self._lift_handle:
+            self._lift_handle.cancel()
+            self._lift_handle = None
         if self._gripper_handle:
             self._gripper_handle.cancel()
             self._gripper_handle = None
@@ -110,18 +142,33 @@ class HomeTask(Task):
 
 
 class NavTask(Task):
-    def __init__(self, robot, mission_data, waypoints, goal_heading=None, path_planner="pp", delivery_segment=False):
-        super().__init__(robot, mission_data)
-        # Ensure waypoints is a list of tuples
-        if waypoints is not None:
+    def __init__(self, robot: Robot, mission_data: dict, params: dict):
+        super().__init__(robot, mission_data, params)
+        
+        # 1. Extract parameters
+        waypoints = list(self._params.get("waypoints", []))
+        self._goal_heading = self._params.get("goal_heading")
+        self._path_planner = self._params.get("path_planner", "pp")
+        self._delivery_segment = False
+
+        # 2. Robustness: Inject customer data BEFORE path generation if mission requires it
+        if not self._mission_data.get("delivery_status"):
+            matched_customer = self._mission_data.get("matched_customer")
+            if matched_customer == 1:
+                waypoints.append(cp.WP_CUSTOMER_1)
+                self._goal_heading = 0
+                self._delivery_segment = True
+            elif matched_customer == 2:
+                waypoints.append(cp.WP_CUSTOMER_2)
+                self._goal_heading = 0
+                self._delivery_segment = True
+
+        # 3. Path Processing
+        if waypoints:
             self._vertices = [tuple(wp) for wp in np.atleast_2d(waypoints)]
         else:
             self._vertices = []
         
-        self._goal_heading = goal_heading
-        self._path_planner = path_planner
-        self._delivery_segment = delivery_segment
-
         self._is_done = False
         self._wp_lapf_idx = 0
         self._handle = None
@@ -263,9 +310,8 @@ class NavTask(Task):
 
 
 class WaitTask(Task):
-    def __init__(self, robot, mission_data, params: dict):
-        super().__init__(robot, mission_data)
-        self._params = params
+    def __init__(self, robot: Robot, mission_data: dict, params: dict):
+        super().__init__(robot, mission_data, params)
         self._is_done = False
         self._handle = None
         self._time_pause_period = 2.0
@@ -278,18 +324,20 @@ class WaitTask(Task):
         now = time.monotonic()
 
         if self._params.get("trigger") == "green_light":
-            # 1. Check for traffic light first (Priority)
+            # 1. Check for traffic light first and print color
             if vh.sees_traffic_light(self._robot):
                 self._traffic_light_detected = True
-                if now - self._time_last_detection >= self._time_detection_period:
-                    self._time_last_detection = now
-                    print("[WaitTask] Traffic light detected")
                 self._robot.stop()
                 if self._handle:
                     self._handle.cancel()
                     self._handle = None
-                
                 detected_color = vh.find_traffic_light_color(self._robot)
+                if now - self._time_last_detection >= self._time_detection_period:
+                    self._time_last_detection = now
+                    if detected_color is not None:
+                        print(f"[WaitTask] Traffic light detected, color {detected_color}")
+                    else:
+                        print("[WaitTask] Traffic light detected, color undefined")
                 if detected_color == "green":
                     self._is_done = True
                     print("[WaitTask] Completion triggered by green light")
@@ -332,40 +380,31 @@ class WaitTask(Task):
 
 
 class ManipTask(Task):
-    def __init__(self, robot, mission_data, params: dict):
-        super().__init__(robot, mission_data)
+    def __init__(self, robot: Robot, mission_data: dict, params: dict):
+        super().__init__(robot, mission_data, params)
         self._is_done = False
         
-        command = params.get("command")
-        if command == "pick":
+        self._command = self._params.get("command")
+        if self._command == "pick":
             self._sequence = bp.PICK_SEQUENCE
-            ingredient = params.get("ingredient")
-            self._raise_steps = hm.LIFT_LIFTOFF_STEPS
-            if ingredient == "bun":
-                self._raise_steps -= ih.Bun.HEIGHT_STEPS
-            elif ingredient == "patty":
-                self._raise_steps -= ih.Patty.HEIGHT_STEPS
+            ingredient = self._params.get("ingredient")
+            self._raise_steps = hm.LIFT_LIFTOFF_STEPS - ingredient.HEIGHT_STEPS
 
-        elif command == "place":
+        elif self._command == "place":
             self._sequence = bp.PLACE_SEQUENCE
             self._raise_steps = hm.LIFT_LIFTOFF_STEPS
             for ingredient in self._mission_data["burger_stack"]:
-                if ingredient == "bun":
-                    self._raise_steps -= ih.Bun.HEIGHT_STEPS
-                elif ingredient == "patty":
-                    self._raise_steps -= ih.Patty.HEIGHT_STEPS
+                self._raise_steps -= ingredient.HEIGHT_STEPS
+
         else:
             self._sequence = []
             self._is_done = True
 
-        self._ingredient = params.get("ingredient")
-        if self._ingredient == "bun":
-            self._level_height = hm.LIFT_LIFTOFF_STEPS - ih.Bun.HEIGHT_STEPS
-            self._close_deg = ih.Bun.GRIP_ANGLE
-        elif self._ingredient == "patty":
-            self._level_height = hm.LIFT_LIFTOFF_STEPS - ih.Patty.HEIGHT_STEPS
-            self._close_deg = ih.Patty.GRIP_ANGLE
-        elif command == "place":
+        self._ingredient = self._params.get("ingredient")
+        if self._command == "pick":
+            self._level_height = hm.LIFT_LIFTOFF_STEPS - self._ingredient.HEIGHT_STEPS
+            self._close_deg = self._ingredient.GRIP_ANGLE
+        elif self._command == "place":
             self._level_height = -600 # TODO: Add parameter (LOW)
         
         self._idx = 0
@@ -380,7 +419,8 @@ class ManipTask(Task):
     def on_exit(self) -> None:
         """Disable power-hungry manipulator hardware upon exit."""
         self._robot.step_disable(hm.LIFT_STEPPER_ID)
-        self._mission_data["burger_stack"].append(self._ingredient)
+        if self._command == "pick":
+            self._mission_data["burger_stack"].append(self._ingredient)
 
     def update(self):
         if self._is_done:
@@ -470,8 +510,8 @@ class ManipTask(Task):
 
 
 class IdentTask(Task):
-    def __init__(self, robot, mission_data):
-        super().__init__(robot, mission_data)
+    def __init__(self, robot: Robot, mission_data: dict, params: dict):
+        super().__init__(robot, mission_data, params)
         self._is_done = False
         self._last_attempt_time = 0
         self._attempt_period = 2.0 # Wait 2s between identification attempts
@@ -520,37 +560,14 @@ def build_task(robot: Robot, task_dict: dict, mission_data: dict) -> Task:
     state = task_dict.get("state")
 
     if state == "NAV":
-        waypoints = list(task_dict.get("waypoints", []))
-        goal_heading = task_dict.get("goal_heading")
-        delivery_segment = False
-
-        # Robustness: Inject customer data BEFORE path generation
-        if not mission_data.get("delivery_status"):
-            matched_customer = mission_data.get("matched_customer")
-            if matched_customer == 1:
-                waypoints.append(cp.WP_CUSTOMER_1)
-                goal_heading = 0
-                delivery_segment = True
-            elif matched_customer == 2:
-                waypoints.append(cp.WP_CUSTOMER_2)
-                goal_heading = 0
-                delivery_segment = True
-            
-        return NavTask(
-            robot=robot,
-            mission_data=mission_data,
-            waypoints=waypoints,
-            goal_heading=goal_heading,
-            path_planner=task_dict.get("path_planner", "pp"),
-            delivery_segment=delivery_segment
-        )
+        return NavTask(robot, mission_data, task_dict)
     elif state == "WAIT":
         return WaitTask(robot, mission_data, task_dict)
     elif state == "MANIP":
         return ManipTask(robot, mission_data, task_dict)
     elif state == "IDENT":
-        return IdentTask(robot, mission_data)
+        return IdentTask(robot, mission_data, task_dict)
     elif state == "HOME":
-        return HomeTask(robot, mission_data)
+        return HomeTask(robot, mission_data, task_dict)
     else:
-        return Task(robot, mission_data)
+        return Task(robot, mission_data, task_dict)

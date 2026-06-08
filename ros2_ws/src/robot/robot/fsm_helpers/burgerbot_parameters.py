@@ -27,6 +27,10 @@ WP_SPACING_LAPF = 800.0
 LOOKAHEAD_LAPF = 150.0
 ADVANCE_RADIUS_LAPF = WP_SPACING_LAPF*0.4
 
+class HomeStage(IntEnum):
+    HOME = auto()
+    INIT = auto()
+
 class NavStage(IntEnum):
     START_HEADING = auto()
     POSITION = auto()

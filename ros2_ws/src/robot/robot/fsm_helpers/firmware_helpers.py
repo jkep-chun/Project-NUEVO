@@ -220,13 +220,14 @@ class StepMoveHandle(FsmHandle):
         self._robot = robot
         self._id = stepper_id
         self._disable_on_done = disable_on_done
+        self._target_position = target_position
         self._saw_active = False
 
-        if target_position is not None:
+        if self._target_position is not None:
             state = self._robot.get_step_state()
             if state is not None:
                 current_pos = state.steppers[self._id - 1].count
-                if current_pos == target_position:
+                if current_pos == self._target_position:
                     if self._disable_on_done:
                         self._robot.step_disable(self._id)
                     self._finished = True
@@ -241,7 +242,8 @@ class StepMoveHandle(FsmHandle):
             return False
         
         # Index is 0-based
-        motion_state = state.steppers[self._id - 1].motion_state
+        stepper_state = state.steppers[self._id - 1]
+        motion_state = stepper_state.motion_state
         
         # 1. Detect that it has actually started moving
         if motion_state != 0: # 0 is IDLE
@@ -252,6 +254,14 @@ class StepMoveHandle(FsmHandle):
             if self._disable_on_done:
                 self._robot.step_disable(self._id) # Safe to disable now
             self._finished = True
+        
+        # 3. Robustness check: if we are at the target position and IDLE, we are done
+        if not self._finished and motion_state == 0 and self._target_position is not None:
+            if stepper_state.count == self._target_position:
+                if self._disable_on_done:
+                    self._robot.step_disable(self._id)
+                self._finished = True
+
         return self._finished
 
     def cancel(self) -> None:
@@ -330,6 +340,7 @@ def move_lift(robot: Robot, position: float, move_type: int, disable_on_done: bo
     Starts a non-blocking stepper move for the lift.
     Returns a StepMoveHandle to poll for completion.
     """
+    robot.step_enable(hm.LIFT_STEPPER_ID)
     robot.step_move(hm.LIFT_STEPPER_ID, position, move_type, blocking=False)
     
     target_pos = int(position) if move_type == hm.StepMoveType.ABSOLUTE else None
@@ -372,6 +383,7 @@ def set_gripper(robot: Robot, angle: float) -> ServoHandle:
     Starts the non-blocking, velocity-limited gripper motion
     Returns a ServoHandle to poll for completion.
     """
+    robot.enable_servo(hm.GRIPPER_SERVO_ID)
     return ServoHandle(
         robot=robot,
         servo_id=hm.GRIPPER_SERVO_ID,
