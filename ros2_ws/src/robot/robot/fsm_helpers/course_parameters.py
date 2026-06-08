@@ -17,7 +17,7 @@ WP_STOP_SIGN      = (4*SQ,    1.5*SQ)
 
 WP1             = (0*SQ,    6*SQ)
 WP2             = (1*SQ,    6*SQ)
-WP2B            = (9*SQ,    4.8*SQ)
+WP2B            = (0.9*SQ,    4.8*SQ)
 WP3             = (1*SQ,    1*SQ)
 WP4             = (2.5*SQ,  1*SQ)
 WP4B            = (2.5*SQ,  5.75*SQ)

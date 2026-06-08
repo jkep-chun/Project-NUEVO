@@ -5,14 +5,15 @@ User-defined mission tasks. Set MODE below
 from robot.fsm_helpers import course_parameters as cp
 from robot.fsm_helpers.course_parameters import SQ
 
-MODE = "manip_nav"
+MODE = "ALL_WAYPOINTS"
 # MODE = "RANDOM"
 
 if MODE == "RANDOM":
     tasks = [{
         "state": "NAV",
         "path_planner": "pp",
-        "waypoints": [(0, 10*24*25.4)],
+        "waypoints": [(0, 3*SQ)],
+        "enable_slam_localization": True
     },
     ]
 
@@ -68,9 +69,9 @@ elif MODE == "SQUARE2":
 
 elif MODE == "ALL_WAYPOINTS":
     tasks = [
-        {"state": "NAV", "path_planner": "pp", "waypoints": [cp.WP1, cp.WP2, cp.WP2B, cp.WP3, cp.WP4], "goal_heading": 90.0},
-        {"state": "NAV", "path_planner": "lapf", "waypoints": [cp.WP4B, cp.WP_CUSTOMER_ID], "goal_heading": 0.0},
-        {"state": "NAV", "path_planner": "pp", "waypoints": [cp.WP5, cp.WP6]}
+        {"state": "NAV", "path_planner": "pp", "waypoints": [cp.WP1, cp.WP2, cp.WP3, cp.WP4], "goal_heading": 90.0, "enable_slam_localization": True},
+        {"state": "NAV", "path_planner": "lapf", "waypoints": [cp.WP4B, cp.WP_CUSTOMER_ID], "goal_heading": 0.0, "enable_slam_localization": True},
+        {"state": "NAV", "path_planner": "pp", "waypoints": [cp.WP5, cp.WP6], "enable_slam_localization": True}
     ]
 
 # =============================================================================
