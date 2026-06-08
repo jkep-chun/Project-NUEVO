@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import math
 import time
-import os
 import numpy as np
 
 from robot.fsm_helpers.path_helpers import generate_open_rounded_path
@@ -19,9 +18,10 @@ import robot.fsm_helpers.ingredient_helpers as ih
 ENABLE_CAM = True
 
 class Task:
-    def __init__(self, robot: Robot, mission_data: dict):
+    def __init__(self, robot: Robot, mission_data: dict, params: dict):
         self._robot = robot
         self._mission_data = mission_data
+        self._params = params
 
     def update(self) -> None:
         pass
@@ -43,8 +43,8 @@ class Task:
 class HomeTask(Task):
     """Homing has two physical components: the lift (stepper) and gripper (servo), and their sequences are handled in parallel"""
     
-    def __init__(self, robot: Robot, task_dict: dict, mission_data: dict):
-        super().__init__(robot, mission_data)
+    def __init__(self, robot: Robot, mission_data: dict, params: dict):
+        super().__init__(robot, mission_data, params)
         self._is_done = False
         self._lift_handle = None
         self._gripper_handle = None
@@ -52,7 +52,6 @@ class HomeTask(Task):
         self._gripper_done = False
         self._home_stages = [bp.HomeStage.HOME]
         self._home_stage_idx = 0
-        self._params = task_dict
 
         if self._params.get("lift_init_height"):
             self._home_stages.append(bp.HomeStage.INIT)
@@ -143,18 +142,33 @@ class HomeTask(Task):
 
 
 class NavTask(Task):
-    def __init__(self, robot, mission_data, waypoints, goal_heading=None, path_planner="pp", delivery_segment=False):
-        super().__init__(robot, mission_data)
-        # Ensure waypoints is a list of tuples
-        if waypoints is not None:
+    def __init__(self, robot: Robot, mission_data: dict, params: dict):
+        super().__init__(robot, mission_data, params)
+        
+        # 1. Extract parameters
+        waypoints = list(self._params.get("waypoints", []))
+        self._goal_heading = self._params.get("goal_heading")
+        self._path_planner = self._params.get("path_planner", "pp")
+        self._delivery_segment = False
+
+        # 2. Robustness: Inject customer data BEFORE path generation if mission requires it
+        if not self._mission_data.get("delivery_status"):
+            matched_customer = self._mission_data.get("matched_customer")
+            if matched_customer == 1:
+                waypoints.append(cp.WP_CUSTOMER_1)
+                self._goal_heading = 0
+                self._delivery_segment = True
+            elif matched_customer == 2:
+                waypoints.append(cp.WP_CUSTOMER_2)
+                self._goal_heading = 0
+                self._delivery_segment = True
+
+        # 3. Path Processing
+        if waypoints:
             self._vertices = [tuple(wp) for wp in np.atleast_2d(waypoints)]
         else:
             self._vertices = []
         
-        self._goal_heading = goal_heading
-        self._path_planner = path_planner
-        self._delivery_segment = delivery_segment
-
         self._is_done = False
         self._wp_lapf_idx = 0
         self._handle = None
@@ -296,9 +310,8 @@ class NavTask(Task):
 
 
 class WaitTask(Task):
-    def __init__(self, robot, mission_data, params: dict):
-        super().__init__(robot, mission_data)
-        self._params = params
+    def __init__(self, robot: Robot, mission_data: dict, params: dict):
+        super().__init__(robot, mission_data, params)
         self._is_done = False
         self._handle = None
         self._time_pause_period = 2.0
@@ -365,14 +378,14 @@ class WaitTask(Task):
 
 
 class ManipTask(Task):
-    def __init__(self, robot, mission_data, params: dict):
-        super().__init__(robot, mission_data)
+    def __init__(self, robot: Robot, mission_data: dict, params: dict):
+        super().__init__(robot, mission_data, params)
         self._is_done = False
         
-        self._command = params.get("command")
+        self._command = self._params.get("command")
         if self._command == "pick":
             self._sequence = bp.PICK_SEQUENCE
-            ingredient = params.get("ingredient")
+            ingredient = self._params.get("ingredient")
             self._raise_steps = hm.LIFT_LIFTOFF_STEPS - ingredient.HEIGHT_STEPS
 
         elif self._command == "place":
@@ -385,7 +398,7 @@ class ManipTask(Task):
             self._sequence = []
             self._is_done = True
 
-        self._ingredient = params.get("ingredient")
+        self._ingredient = self._params.get("ingredient")
         if self._command == "pick":
             self._level_height = hm.LIFT_LIFTOFF_STEPS - self._ingredient.HEIGHT_STEPS
             self._close_deg = self._ingredient.GRIP_ANGLE
@@ -495,8 +508,8 @@ class ManipTask(Task):
 
 
 class IdentTask(Task):
-    def __init__(self, robot, mission_data):
-        super().__init__(robot, mission_data)
+    def __init__(self, robot: Robot, mission_data: dict, params: dict):
+        super().__init__(robot, mission_data, params)
         self._is_done = False
         self._last_attempt_time = 0
         self._attempt_period = 2.0 # Wait 2s between identification attempts
@@ -545,37 +558,14 @@ def build_task(robot: Robot, task_dict: dict, mission_data: dict) -> Task:
     state = task_dict.get("state")
 
     if state == "NAV":
-        waypoints = list(task_dict.get("waypoints", []))
-        goal_heading = task_dict.get("goal_heading")
-        delivery_segment = False
-
-        # Robustness: Inject customer data BEFORE path generation
-        if not mission_data.get("delivery_status"):
-            matched_customer = mission_data.get("matched_customer")
-            if matched_customer == 1:
-                waypoints.append(cp.WP_CUSTOMER_1)
-                goal_heading = 0
-                delivery_segment = True
-            elif matched_customer == 2:
-                waypoints.append(cp.WP_CUSTOMER_2)
-                goal_heading = 0
-                delivery_segment = True
-            
-        return NavTask(
-            robot=robot,
-            mission_data=mission_data,
-            waypoints=waypoints,
-            goal_heading=goal_heading,
-            path_planner=task_dict.get("path_planner", "pp"),
-            delivery_segment=delivery_segment
-        )
+        return NavTask(robot, mission_data, task_dict)
     elif state == "WAIT":
         return WaitTask(robot, mission_data, task_dict)
     elif state == "MANIP":
         return ManipTask(robot, mission_data, task_dict)
     elif state == "IDENT":
-        return IdentTask(robot, mission_data)
+        return IdentTask(robot, mission_data, task_dict)
     elif state == "HOME":
         return HomeTask(robot, mission_data, task_dict)
     else:
-        return Task(robot, mission_data)
+        return Task(robot, mission_data, task_dict)
