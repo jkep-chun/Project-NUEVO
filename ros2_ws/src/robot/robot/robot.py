@@ -280,6 +280,7 @@ class Robot(HardwareMixin, SensorsMixin, NavigationMixin, LegacyMixin):
         self._slam_timeout_s:       float = 1.0
         self._slam_subscribed:      bool  = False
         self._slam_paused:          bool  = False
+        self._slam_ignore_until:    float = 0.0
         self._slam_pos_fusion:      PositionComplementaryFilter = PositionComplementaryFilter(alpha=0.20)
         self._slam_orientation_fusion: OrientationComplementaryFilter = OrientationComplementaryFilter(alpha=0.20)
 

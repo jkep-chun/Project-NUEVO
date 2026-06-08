@@ -129,8 +129,13 @@ class NavigationMixin:
                 and self._gps_last_time > 0.0
                 and (now - self._gps_last_time) < self._gps_timeout_s
             )
+            
+            # Ignore SLAM data for a short window after a reset to flush stale pipes
+            slam_in_blackout = (now < self._slam_ignore_until)
+            
             slam_fresh = (
                 not self._slam_paused
+                and not slam_in_blackout
                 and self._slam_last_time > 0.0
                 and (now - self._slam_last_time) < self._slam_timeout_s
             )
@@ -248,16 +253,24 @@ class NavigationMixin:
         Captures the AHRS zero reference on the first kinematics tick after the
         firmware confirms the reset, so both references share the same timestamp.
         """
+        import time as _time
         with self._lock:
             self._odom_reset_pending = True
             self._odom_reset_event.clear()
             self._fused_pose_available = False
             self._gps_last_time = 0.0
             self._slam_last_time = 0.0
+            
+            # Blackout window (500ms) to ensure we don't snap to stale SLAM data
+            # buffered in the bridge or ROS pipe from before the reset.
+            self._slam_ignore_until = _time.monotonic() + 0.500
+            
             self._pos_fusion.reset()
             self._slam_pos_fusion.reset()
             if hasattr(self._orientation_fusion, "reset"):
                 self._orientation_fusion.reset()
+            if hasattr(self._slam_orientation_fusion, "reset"):
+                self._slam_orientation_fusion.reset()
             if hasattr(self._slam_orientation_fusion, "reset"):
                 self._slam_orientation_fusion.reset()
             self._odom_traj.clear()

@@ -84,12 +84,17 @@ def start_robot(robot: Robot) -> None:
 
 
 def reset_mission_pose(robot: Robot) -> None:
-    robot.reset_odometry()
-    if not robot.wait_for_odometry_reset(timeout=2.0):
-        print("[warn] odometry reset not confirmed within 2.0s; continuing with latest pose")
-        robot.wait_for_pose_update(timeout=0.5)
-        x, y, theta = robot.get_pose()
-        print(f"POSE: ({x:.1f}, {y:.1f}, {theta:.1f})")
+    if ENABLE_SLAM_LOCALIZATION:
+        # Improved set_initial_slam_pose handles odom reset and synchronization
+        robot.set_initial_slam_pose(*INIT_POSE)
+    else:
+        robot.reset_odometry()
+        if not robot.wait_for_odometry_reset(timeout=2.0):
+            print("[warn] odometry reset not confirmed within 2.0s; continuing with latest pose")
+    
+    robot.wait_for_pose_update(timeout=0.5)
+    x, y, theta = robot.get_pose()
+    print(f"POSE: ({x:.1f}, {y:.1f}, {theta:.1f})")
 
 
 def show_idle_leds(robot: Robot) -> None:

@@ -192,6 +192,27 @@ class SensorsMixin:
         Seed the SLAM engine with a known starting position and heading.
         Coordinates are in the current user unit (default mm).
         """
+        # Align firmware odometry heading with the seed heading.
+        self.set_initial_theta(float(theta_deg))
+        
+        # Reset odometry: this clears firmware x/y, aligns heading, and 
+        # triggers the 500ms SLAM blackout in NavigationMixin.
+        self.reset_odometry()
+
+        # CRITICAL: Wait for the firmware to confirm the reset.
+        # This ensures that when we publish the initial pose, AMCL sees 
+        # the robot's odometry at exactly (0, 0, initial_theta).
+        if not self.wait_for_odometry_reset(timeout=2.0):
+            self._node.get_logger().warning(
+                "Odometry reset not confirmed before SLAM seeding. "
+                "The robot may jump on the map."
+            )
+        
+        # Brief pause to allow the ROS middleware to flush the last few 
+        # "pre-reset" kinematics messages.
+        import time
+        time.sleep(0.2)
+
         if not self._slam_subscribed:
             self.enable_slam_localization()
             

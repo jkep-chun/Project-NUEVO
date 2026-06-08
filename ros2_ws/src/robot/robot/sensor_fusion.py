@@ -70,6 +70,12 @@ class OrientationComplementaryFilter(SensorFusion):
         super().__init__()
         self.alpha = max(0.0, min(1.0, float(alpha)))
         self.measurement_type = "orientation"
+        self._anchor_valid = False
+        self._fused_theta = 0.0
+
+    def reset(self) -> None:
+        """Clear anchor — call when odometry is reset."""
+        self._anchor_valid = False
 
     def update(
         self,
@@ -80,10 +86,18 @@ class OrientationComplementaryFilter(SensorFusion):
         fused_x: float | None = None,
         fused_y: float | None = None,
     ) -> float:
-        # fused_x / fused_y are accepted for interface compatibility with
-        # GPS-tangent-based orientation fusion and are intentionally ignored.
         if mag_heading is None:
             return odom_theta
+        
+        if not self._anchor_valid:
+            self._fused_theta = mag_heading
+            self._anchor_valid = True
+            return self._fused_theta
+
+        # Compute how much odom has changed since last tick
+        # This is a bit tricky since we don't store previous odom_theta.
+        # However, the standard formula already handles this by adding 
+        # the correction to the CURRENT odom_theta.
         return odom_theta + self.alpha * _wrap(mag_heading - odom_theta)
 
 
@@ -229,18 +243,24 @@ class PositionComplementaryFilter(SensorFusion):
         gps_y: float | None,
     ) -> tuple[float, float]:
         if gps_x is not None and gps_y is not None:
-            if self._anchor_valid:
-                prev_x = self._anchor_x_mm + (odom_x - self._odom_x_at_anchor)
-                prev_y = self._anchor_y_mm + (odom_y - self._odom_y_at_anchor)
-            else:
-                prev_x, prev_y = odom_x, odom_y
+            if not self._anchor_valid:
+                # First update after reset: snap immediately to GPS fix
+                self._anchor_x_mm      = gps_x
+                self._anchor_y_mm      = gps_y
+                self._odom_x_at_anchor = odom_x
+                self._odom_y_at_anchor = odom_y
+                self._anchor_valid     = True
+                return gps_x, gps_y
+
+            prev_x = self._anchor_x_mm + (odom_x - self._odom_x_at_anchor)
+            prev_y = self._anchor_y_mm + (odom_y - self._odom_y_at_anchor)
+            
             fused_x = prev_x + self.alpha * (gps_x - prev_x)
             fused_y = prev_y + self.alpha * (gps_y - prev_y)
             self._anchor_x_mm      = fused_x
             self._anchor_y_mm      = fused_y
             self._odom_x_at_anchor = odom_x
             self._odom_y_at_anchor = odom_y
-            self._anchor_valid     = True
             return fused_x, fused_y
         if self._anchor_valid:
             return (
