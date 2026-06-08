@@ -324,18 +324,20 @@ class WaitTask(Task):
         now = time.monotonic()
 
         if self._params.get("trigger") == "green_light":
-            # 1. Check for traffic light first (Priority)
+            # 1. Check for traffic light first and print color
             if vh.sees_traffic_light(self._robot):
                 self._traffic_light_detected = True
-                if now - self._time_last_detection >= self._time_detection_period:
-                    self._time_last_detection = now
-                    print("[WaitTask] Traffic light detected")
                 self._robot.stop()
                 if self._handle:
                     self._handle.cancel()
                     self._handle = None
-                
                 detected_color = vh.find_traffic_light_color(self._robot)
+                if now - self._time_last_detection >= self._time_detection_period:
+                    self._time_last_detection = now
+                    if detected_color is not None:
+                        print(f"[WaitTask] Traffic light detected, color {detected_color}")
+                    else:
+                        print("[WaitTask] Traffic light detected, color undefined")
                 if detected_color == "green":
                     self._is_done = True
                     print("[WaitTask] Completion triggered by green light")
