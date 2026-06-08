@@ -35,8 +35,23 @@ def generate_launch_description():
             parameters=[{'yaml_filename': map_file}]
         ),
 
-        # 4. AMCL (Localization)
+        # 4. Laser Filter (Remove scans outside FOV)
+        Node(
+            package='sensors',
+            executable='laser_filter',
+            name='laser_filter',
+            output='screen',
+            parameters=[{
+                'fov_min_deg': -70.0,
+                'fov_max_deg': 70.0,
+                'range_min_m': 0.07,
+                'range_max_m': 3.5
+            }]
+        ),
+
+        # 5. AMCL (Localization)
         # Remap /amcl_pose to /pose so slam_bridge can pick it up
+        # Remap scan to /scan_filtered to use the filtered lidar data
         Node(
             package='nav2_amcl',
             executable='amcl',
@@ -45,11 +60,12 @@ def generate_launch_description():
             parameters=[amcl_config],
             remappings=[
                 ('/amcl_pose', '/pose'),
-                ('initialpose', '/initialpose')
+                ('initialpose', '/initialpose'),
+                ('scan', '/scan_filtered')
             ]
         ),
 
-        # 5. SLAM Bridge (Converter: m -> mm)
+        # 6. SLAM Bridge (Converter: m -> mm)
         # Listens to /pose and publishes to /slam_pose_update
         Node(
             package='robot',
@@ -58,7 +74,7 @@ def generate_launch_description():
             output='screen'
         ),
 
-        # 6. Lifecycle Manager (to activate map_server and amcl)
+        # 7. Lifecycle Manager (to activate map_server and amcl)
         Node(
             package='nav2_lifecycle_manager',
             executable='lifecycle_manager',
@@ -69,7 +85,7 @@ def generate_launch_description():
                         {'node_names': ['map_server', 'amcl']}]
         ),
 
-        # 7. Foxglove Bridge for visualization
+        # 8. Foxglove Bridge for visualization
         Node(
             package='foxglove_bridge',
             executable='foxglove_bridge',
