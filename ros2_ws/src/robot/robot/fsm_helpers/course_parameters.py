@@ -6,7 +6,7 @@ SQ = 605.2 # Length of one square in mm
 
 INIT_POSE         = (0.0, 0.0, 90.0)
 
-EXTRA = 25.0 # Over ramp (mm)
+EXTRA = 0.0 # Over ramp (mm)
 
 MAX_TURN_FOR_TRAFFIC_LIGHT_DEG = 30 # TODO: Verify (HIGH)
 
@@ -20,6 +20,7 @@ WP_STOP_SIGN      = (4*SQ,    1.5*SQ - EXTRA)
 
 WP1             = (0*SQ,    6*SQ)
 WP2             = (1*SQ,    6*SQ)
+WP2B            = (0.95*SQ,    5*SQ)
 WP3             = (1*SQ,    1*SQ - EXTRA)
 WP4             = (2.5*SQ,  1*SQ - EXTRA)
 WP4B            = (2.5*SQ,  5.75*SQ - EXTRA)

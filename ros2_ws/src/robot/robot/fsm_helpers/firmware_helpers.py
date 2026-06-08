@@ -9,7 +9,7 @@ from robot.fsm_helpers.course_parameters import INIT_POSE
 
 ENABLE_LIDAR = True
 ENABLE_GPS = False
-ENABLE_SLAM_LOCALIZATION = False
+ENABLE_SLAM_LOCALIZATION = True
 ENABLE_VISION = True
 
 def configure_robot(robot: Robot) -> None:
