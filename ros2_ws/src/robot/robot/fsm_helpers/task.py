@@ -142,10 +142,6 @@ class HomeTask(Task):
 
 
 class NavTask(Task):
-    def __init__(self, robot, mission_data, waypoints, goal_heading=None, path_planner="pp", delivery_segment=False, enable_slam_localization=False):
-        super().__init__(robot, mission_data)
-        # Ensure waypoints is a list of tuples
-        if waypoints is not None:
     def __init__(self, robot: Robot, mission_data: dict, params: dict):
         super().__init__(robot, mission_data, params)
         
@@ -154,6 +150,7 @@ class NavTask(Task):
         self._goal_heading = self._params.get("goal_heading")
         self._path_planner = self._params.get("path_planner", "pp")
         self._delivery_segment = False
+        self._enable_slam_localization = self._params.get("enable_slam_localization", False)
 
         # 2. Robustness: Inject customer data BEFORE path generation if mission requires it
         if not self._mission_data.get("delivery_status"):
@@ -173,11 +170,6 @@ class NavTask(Task):
         else:
             self._vertices = []
         
-        self._goal_heading = goal_heading
-        self._path_planner = path_planner
-        self._delivery_segment = delivery_segment
-
-        self._enable_slam_localization = enable_slam_localization
         if self._enable_slam_localization:
             self._robot.enable_slam_localization()
         else:
@@ -574,32 +566,6 @@ def build_task(robot: Robot, task_dict: dict, mission_data: dict) -> Task:
     state = task_dict.get("state")
 
     if state == "NAV":
-        waypoints = list(task_dict.get("waypoints", []))
-        goal_heading = task_dict.get("goal_heading")
-        delivery_segment = False
-        enable_slam_localization = task_dict.get("enable_slam_localization")
-
-        # Robustness: Inject customer data BEFORE path generation
-        if not mission_data.get("delivery_status"):
-            matched_customer = mission_data.get("matched_customer")
-            if matched_customer == 1:
-                waypoints.append(cp.WP_CUSTOMER_1)
-                goal_heading = 0
-                delivery_segment = True
-            elif matched_customer == 2:
-                waypoints.append(cp.WP_CUSTOMER_2)
-                goal_heading = 0
-                delivery_segment = True
-            
-        return NavTask(
-            robot=robot,
-            mission_data=mission_data,
-            waypoints=waypoints,
-            goal_heading=goal_heading,
-            path_planner=task_dict.get("path_planner", "pp"),
-            delivery_segment=delivery_segment,
-            enable_slam_localization=enable_slam_localization
-        )
         return NavTask(robot, mission_data, task_dict)
     elif state == "WAIT":
         return WaitTask(robot, mission_data, task_dict)
