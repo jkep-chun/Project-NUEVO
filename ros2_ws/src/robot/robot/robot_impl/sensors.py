@@ -35,19 +35,25 @@ except (ImportError, ModuleNotFoundError):
         image_height = 0
 
 try:
-    from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+    from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 except (ImportError, ModuleNotFoundError):
     class ReliabilityPolicy:  # type: ignore[no-redef]
         BEST_EFFORT = "best_effort"
+        RELIABLE = "reliable"
 
     class HistoryPolicy:  # type: ignore[no-redef]
         KEEP_LAST = "keep_last"
 
+    class DurabilityPolicy:  # type: ignore[no-redef]
+        VOLATILE = "volatile"
+        TRANSIENT_LOCAL = "transient_local"
+
     class QoSProfile:  # type: ignore[no-redef]
-        def __init__(self, reliability=None, history=None, depth=1) -> None:
+        def __init__(self, reliability=None, history=None, depth=1, durability=None) -> None:
             self.reliability = reliability
             self.history = history
             self.depth = depth
+            self.durability = durability
 
 try:
     from sensor_msgs.msg import LaserScan
@@ -155,11 +161,17 @@ class SensorsMixin:
                 self._on_slam_pose_update,
                 10
             )
-            # Create a publisher for seeding the SLAM engine
+            # Create a publisher for seeding the SLAM engine.
+            # SLAM nodes usually expect Transient Local durability for seeding.
             self._pub_initial_pose = self._node.create_publisher(
                 PoseWithCovarianceStamped,
                 '/initialpose',
-                10
+                QoSProfile(
+                    reliability=ReliabilityPolicy.RELIABLE,
+                    durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                    history=HistoryPolicy.KEEP_LAST,
+                    depth=1
+                )
             )
             self._slam_subscribed = True
         self._slam_paused = False

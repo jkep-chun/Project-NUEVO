@@ -11,19 +11,25 @@ import time as _time
 
 from robot.sensor_fusion import GpsTangentOrientationFusion, OrientationComplementaryFilter, PositionComplementaryFilter, SensorFusion
 try:
-    from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+    from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 except (ImportError, ModuleNotFoundError):
     class ReliabilityPolicy:
         BEST_EFFORT = "best_effort"
+        RELIABLE = "reliable"
 
     class HistoryPolicy:
         KEEP_LAST = "keep_last"
 
+    class DurabilityPolicy:
+        VOLATILE = "volatile"
+        TRANSIENT_LOCAL = "transient_local"
+
     class QoSProfile:
-        def __init__(self, reliability=None, history=None, depth=1) -> None:
+        def __init__(self, reliability=None, history=None, depth=1, durability=None) -> None:
             self.reliability = reliability
             self.history = history
             self.depth = depth
+            self.durability = durability
 
 import numpy as np
 
