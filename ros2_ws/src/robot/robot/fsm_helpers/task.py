@@ -151,6 +151,20 @@ class NavTask(Task):
         self._path_planner = self._params.get("path_planner", "pp")
         self._delivery_segment = False
 
+        # Profiling parameters
+        self._use_profile = self._params.get("use_profile", False)
+        self._accel = self._params.get("accel", None)
+        self._decel = self._params.get("decel", self._accel)
+        self._angular_accel = self._params.get("angular_accel", None)
+        self._angular_decel = self._params.get("angular_decel", self._angular_accel)
+
+        if self._path_planner == "lapf":
+            self._velocity = self._params.get("velocity", bp.VELOCITY_LAPF)
+            self._max_angular_rad_s = self._params.get("max_angular_rad_s", bp.ANGULAR_RAD_S_LAPF)
+        else:
+            self._velocity = self._params.get("velocity", bp.VELOCITY_MM_S)
+            self._max_angular_rad_s = self._params.get("max_angular_rad_s", 1.0)
+
         # 2. Robustness: Inject customer data BEFORE path generation if mission requires it
         if not self._mission_data.get("delivery_status"):
             matched_customer = self._mission_data.get("matched_customer")
@@ -248,7 +262,10 @@ class NavTask(Task):
                     angle_deg=self._start_heading,
                     blocking=False,
                     tolerance_deg=5.0,
-                    timeout=None
+                    timeout=None,
+                    use_profile=self._use_profile,
+                    accel=self._angular_accel,
+                    decel=self._angular_decel
                 )
 
         elif self._stage == bp.NavStage.POSITION:
@@ -257,19 +274,22 @@ class NavTask(Task):
                     print(f"Driving seg with {len(self._waypoints)} waypoints")
                     self._handle = self._robot.purepursuit_follow_path(
                         waypoints=self._waypoints,
-                        velocity=bp.VELOCITY_MM_S,
+                        velocity=self._velocity,
                         lookahead=bp.LOOKAHEAD_MM,
                         tolerance=bp.TOLERANCE_MM,
                         blocking=False,
-                        max_angular_rad_s=1.0,
-                        advance_radius=bp.ADVANCE_RADIUS_MM
+                        max_angular_rad_s=self._max_angular_rad_s,
+                        advance_radius=bp.ADVANCE_RADIUS_MM,
+                        use_profile=self._use_profile,
+                        accel=self._accel,
+                        decel=self._decel
                     )
                 elif self._path_planner == "lapf":
                     print(f"Driving (LAPF) seg with {len(self._waypoints)} waypoints")
                     self._handle = self._robot.lapf_follow_path(
                         waypoints=self._waypoints,
-                        velocity=bp.VELOCITY_LAPF,
-                        max_angular_rad_s=bp.ANGULAR_RAD_S_LAPF,
+                        velocity=self._velocity,
+                        max_angular_rad_s=self._max_angular_rad_s,
                         tolerance=bp.TOLERANCE_LAPF,
                         repulsion_range=bp.REPULSION_RANGE_LAPF,
                         repulsion_gain=bp.REPULSION_GAIN_LAPF,
@@ -282,6 +302,9 @@ class NavTask(Task):
                         lookahead=bp.LOOKAHEAD_LAPF,
                         advance_radius=bp.ADVANCE_RADIUS_LAPF,
                         blocking=False,
+                        use_profile=self._use_profile,
+                        accel=self._accel,
+                        decel=self._decel
                     )
 
         elif self._stage == bp.NavStage.HEADING:
@@ -291,7 +314,10 @@ class NavTask(Task):
                     angle_deg=self._goal_heading,
                     blocking=False,
                     tolerance_deg=2.0,
-                    timeout=None
+                    timeout=None,
+                    use_profile=self._use_profile,
+                    accel=self._angular_accel,
+                    decel=self._angular_decel
                 )
 
     def is_done(self) -> bool:
@@ -358,7 +384,10 @@ class WaitTask(Task):
                         delta_deg=20.0,
                         blocking=False,
                         tolerance_deg=2.0,
-                        timeout=None
+                        timeout=None,
+                        use_profile=self._params.get("use_profile", False),
+                        accel=self._params.get("angular_accel", None),
+                        decel=self._params.get("angular_decel", self._params.get("angular_accel"))
                     )
 
     def on_enter(self) -> None:
@@ -464,9 +493,12 @@ class ManipTask(Task):
                 print(f"[ManipTask] Retreating {backoff_distance:.1f} mm")
                 self._handle = self._robot.move_backward(
                     distance=backoff_distance,
-                    velocity=bp.VELOCITY_MM_S,
+                    velocity=self._params.get("velocity", bp.VELOCITY_MM_S),
                     tolerance=bp.TOLERANCE_MM,
-                    blocking=False
+                    blocking=False,
+                    use_profile=self._params.get("use_profile", False),
+                    accel=self._params.get("accel", None),
+                    decel=self._params.get("decel", self._params.get("accel"))
                 )
             elif stage == bp.ManipStage.LOWER:
                 self._handle = fh.move_lift(
