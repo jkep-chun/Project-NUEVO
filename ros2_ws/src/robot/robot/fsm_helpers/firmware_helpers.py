@@ -49,7 +49,7 @@ def configure_robot(robot: Robot) -> None:
         robot.enable_slam_localization()
         robot.set_initial_slam_pose(*INIT_POSE)
         robot.set_slam_position_fusion_alpha(0.10)
-        robot.set_slam_orientation_fusion_alpha(0.10)
+        robot.set_slam_orientation_fusion_alpha(0.15)
         print("[sensor] SLAM localization enabled")
 
     if ENABLE_VISION:
