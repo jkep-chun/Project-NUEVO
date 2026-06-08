@@ -235,6 +235,8 @@ class NavTask(Task):
             self._is_done = True
 
     def update(self):
+        if self._is_done:
+            return
 
         if self._handle and self._handle.is_done():
             self._handle = None
@@ -327,6 +329,9 @@ class WaitTask(Task):
         self._traffic_light_detected = False
 
     def update(self):
+        if self._is_done:
+            return
+
         now = time.monotonic()
 
         if self._params.get("trigger") == "green_light":
@@ -523,6 +528,9 @@ class IdentTask(Task):
         self._attempt_period = 2.0 # Wait 2s between identification attempts
 
     def update(self):
+        if self._is_done:
+            return
+
         now = time.monotonic()
         if now - self._last_attempt_time < self._attempt_period:
             return
