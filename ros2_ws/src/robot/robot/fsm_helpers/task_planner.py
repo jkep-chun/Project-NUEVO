@@ -49,27 +49,27 @@ tasks = [
         "command": "pick", 
         "ingredient": ih.Bun
     },
-    {
-        "state": "NAV", 
-        "path_planner": "pp", 
-        "waypoints": [cp.WP1, cp.WP2, cp.WP3, cp.WP4]
-    },
-    {
-        "state": "NAV",
-        "path_planner": "lapf",
-        "waypoints": [cp.WP4B, cp.WP_CUSTOMER_ID],
-        "goal_heading": 0.0
-    },
-    {
-        "state": "IDENT"
-    },
-    {
-        "state": "NAV", 
-        "path_planner": "pp",
-        "waypoints": [cp.WP5],
-        "goal_heading": 0.0
-    },
-    {
-        "state": "MANIP", "command": "place"
-    }
+    # {
+    #     "state": "NAV", 
+    #     "path_planner": "pp", 
+    #     "waypoints": [cp.WP1, cp.WP2, cp.WP3, cp.WP4]
+    # },
+    # {
+    #     "state": "NAV",
+    #     "path_planner": "lapf",
+    #     "waypoints": [cp.WP4B, cp.WP_CUSTOMER_ID],
+    #     "goal_heading": 0.0
+    # },
+    # {
+    #     "state": "IDENT"
+    # },
+    # {
+    #     "state": "NAV", 
+    #     "path_planner": "pp",
+    #     "waypoints": [cp.WP5],
+    #     "goal_heading": 0.0
+    # },
+    # {
+    #     "state": "MANIP", "command": "place"
+    # }
 ]
