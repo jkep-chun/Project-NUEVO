@@ -1,0 +1,69 @@
+slam_toolbox:
+  ros__parameters:
+
+    # Solver Parameters (Aztec is standard for 2D)
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_loss_function: None
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_use_nonmonotonic_steps: false
+
+    # ROS Parameters (The Coordinate Chain)
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan
+    mode: mapping # Change to 'localization' once you have a saved .yaml map
+
+    # Precision & Performance (Optimized for 5x5m and RPi 5)
+    debug_logging: false
+    throttle_scans: 1
+    transform_publish_period: 0.01 # 100Hz updates for smooth control
+    map_update_interval: 2.0       # Update visual map every 2s
+    resolution: 0.02               # 2cm resolution (to capture 5mm thin walls)
+    max_laser_range: 6.0           # Slightly larger than the 5m room
+    minimum_time_interval: 0.05
+    transform_timeout: 0.2
+    tf_buffer_duration: 30.
+    stack_size_to_use: 40000000 
+    enable_interactive_mode: true
+
+    # Scan Matcher Parameters (The "Arcing" Corrector)
+    use_scan_matching: true
+    use_scan_barycenter: true
+    minimum_travel_distance: 0.05  # Update every 5cm of travel
+    minimum_travel_heading: 0.04   # Update every 2.3 degrees of turn
+    scan_buffer_size: 10
+    scan_buffer_maximum_scan_distance: 10.0
+    
+    # Penalties (Force alignment with thin walls)
+    distance_variance_penalty: 0.3
+    angle_variance_penalty: 0.4
+    
+    # Matching strictness
+    link_match_minimum_response_fine: 0.5  
+    loop_match_minimum_response_fine: 0.6
+    correlation_search_space_smear_deviation: 0.05 
+
+    # Fine-Grained Search Space (For 4cm accuracy)
+    correlation_search_space_dimension: 0.3
+    correlation_search_space_resolution: 0.01
+    
+    # Loop Closure (Smaller search area for 5x5m room)
+    do_loop_closing: true 
+    loop_search_space_dimension: 4.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03
+    loop_match_minimum_chain_size: 10
+    loop_match_maximum_variance_coarse: 3.0  
+    loop_match_minimum_response_coarse: 0.35
+
+    # Correlation / Search refinement
+    fine_search_angle_offset: 0.00349     
+    coarse_search_angle_offset: 0.349   
+    coarse_angle_resolution: 0.0349   
+    minimum_angle_penalty: 0.9
+    minimum_distance_penalty: 0.5
+    use_response_expansion: true

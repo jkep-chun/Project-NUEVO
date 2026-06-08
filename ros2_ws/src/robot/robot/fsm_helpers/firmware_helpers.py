@@ -5,9 +5,11 @@ import time
 import robot.hardware_map as hm
 import robot.fsm_helpers.burgerbot_parameters as bp
 from robot.robot import FirmwareState, Robot
+from robot.fsm_helpers.course_parameters import INIT_POSE
 
 ENABLE_LIDAR = True
 ENABLE_GPS = False
+ENABLE_SLAM_LOCALIZATION = True
 ENABLE_VISION = True
 
 def configure_robot(robot: Robot) -> None:
@@ -43,6 +45,13 @@ def configure_robot(robot: Robot) -> None:
         robot.set_tag_body_offset(hm.TAG_BODY_OFFSET_X_MM, hm.TAG_BODY_OFFSET_Y_MM)
         print(f"[sensor] GPS enabled — tracking ArUco tag {hm.TAG_ID}")
 
+    if ENABLE_SLAM_LOCALIZATION:
+        robot.enable_slam_localization()
+        robot.set_initial_slam_pose(*INIT_POSE)
+        robot.set_slam_position_fusion_alpha(bp.SLAM_POSITION_FUSION_ALPHA)
+        robot.set_slam_orientation_fusion_alpha(bp.SLAM_ORIENTATION_FUSION_ALPHA)
+        print("[sensor] SLAM localization enabled")
+
     if ENABLE_VISION:
         robot.enable_vision()
         print("[sensor] vision enabled — subscribing to /vision/detections")
@@ -75,12 +84,17 @@ def start_robot(robot: Robot) -> None:
 
 
 def reset_mission_pose(robot: Robot) -> None:
-    robot.reset_odometry()
-    if not robot.wait_for_odometry_reset(timeout=2.0):
-        print("[warn] odometry reset not confirmed within 2.0s; continuing with latest pose")
-        robot.wait_for_pose_update(timeout=0.5)
-        x, y, theta = robot.get_pose()
-        print(f"POSE: ({x:.1f}, {y:.1f}, {theta:.1f})")
+    if ENABLE_SLAM_LOCALIZATION:
+        # Improved set_initial_slam_pose handles odom reset and synchronization
+        robot.set_initial_slam_pose(*INIT_POSE)
+    else:
+        robot.reset_odometry()
+        if not robot.wait_for_odometry_reset(timeout=2.0):
+            print("[warn] odometry reset not confirmed within 2.0s; continuing with latest pose")
+    
+    robot.wait_for_pose_update(timeout=0.5)
+    x, y, theta = robot.get_pose()
+    print(f"POSE: ({x:.1f}, {y:.1f}, {theta:.1f})")
 
 
 def show_idle_leds(robot: Robot) -> None:

@@ -8,6 +8,7 @@ from robot.robot_fsm import RobotFSM
 
 # TODO: Change path when complete (MED)
 import robot.fsm_helpers.firmware_helpers as fh
+import robot.hardware_map as hm
 from robot.fsm_helpers.task_planner import tasks
 from robot.fsm_helpers.task import build_task, Task
 
@@ -41,6 +42,8 @@ class MissionFSM(RobotFSM):
         
         # Transitions
         self.add_transition("INIT", "to_execute", "EXECUTE")
+        self.add_transition("INIT", "to_teleop", "TELEOP")
+        self.add_transition("TELEOP", "to_init", "INIT")
         self.add_transition("EXECUTE", "next", "EXECUTE", action=self._advance_task)
         self.add_transition("EXECUTE", "e-stop", "ERROR")
         self.add_transition("EXECUTE", "to_done", "DONE")
@@ -119,9 +122,20 @@ class MissionFSM(RobotFSM):
             print("\n>>> INIT - STARTING ROBOT")
             fh.start_robot(self.robot)
             fh.reset_mission_pose(self.robot)
+            self.robot.stop()
             print(
                 "\n>>> INIT - FIRMWARE RUNNING" \
-                "\n    BTN_1 -> EXECUTE"
+                "\n    BTN_1 -> EXECUTE" \
+                "\n    BTN_2 -> TELEOP"
+            )
+
+        elif state == "TELEOP":
+            self.robot.enable_motor(hm.LEFT_WHEEL_MOTOR, hm.DCMotorMode.VELOCITY)
+            self.robot.enable_motor(hm.RIGHT_WHEEL_MOTOR, hm.DCMotorMode.VELOCITY)
+            self.robot.enable_slam_localization()
+            print(
+                "\n>>> TELEOP - CONTROL VIA FOXGLOVE" \
+                "\n    BTN_1 -> INIT"
             )
 
         elif state == "EXECUTE":
@@ -156,7 +170,6 @@ class MissionFSM(RobotFSM):
                 self.conn = None
             self.robot.estop()
             print("\n>>> ERROR (CTRL + C TO TERMINATE NODE)")
-
 
     def _plot_trajectory(self) -> None:
         """
@@ -243,6 +256,12 @@ class MissionFSM(RobotFSM):
         if state_str == "INIT":
             if self.robot.was_button_pressed(Button.BTN_1):
                 self.trigger("to_execute")
+            elif self.robot.was_button_pressed(Button.BTN_2):
+                self.trigger("to_teleop")
+
+        elif state_str == "TELEOP":
+            if self.robot.was_button_pressed(Button.BTN_1):
+                self.trigger("to_init")
         
         elif state_str == "EXECUTE":
             # BTN_1 skip check

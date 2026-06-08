@@ -24,6 +24,13 @@ RUN apt-get update && apt-get install -y \
     ros-jazzy-gz-sim \
     && rm -rf /var/lib/apt/lists/*
 
+# Dependencies for SLAM support
+RUN apt-get update && apt-get install -y \
+    ros-jazzy-nav-msgs \
+    ros-jazzy-geometry-msgs \
+    ros-jazzy-tf2-ros \
+    && rm -rf /var/lib/apt/lists/*
+
 # Initialize rosdep
 RUN rosdep init || true
 RUN rosdep update

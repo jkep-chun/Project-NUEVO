@@ -19,7 +19,13 @@ from bridge_interfaces.msg import (
     TagDetectionArray,
     TrackedObstacle,
     TrackedObstacleArray,
+    FusedPose
 )
+try:
+    from geometry_msgs.msg import PoseWithCovarianceStamped
+except (ImportError, ModuleNotFoundError):
+    class PoseWithCovarianceStamped:  # type: ignore[no-redef]
+        pass
 try:
     from bridge_interfaces.msg import VisionDetectionArray
 except (ImportError, ModuleNotFoundError):
@@ -29,19 +35,25 @@ except (ImportError, ModuleNotFoundError):
         image_height = 0
 
 try:
-    from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+    from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 except (ImportError, ModuleNotFoundError):
     class ReliabilityPolicy:  # type: ignore[no-redef]
         BEST_EFFORT = "best_effort"
+        RELIABLE = "reliable"
 
     class HistoryPolicy:  # type: ignore[no-redef]
         KEEP_LAST = "keep_last"
 
+    class DurabilityPolicy:  # type: ignore[no-redef]
+        VOLATILE = "volatile"
+        TRANSIENT_LOCAL = "transient_local"
+
     class QoSProfile:  # type: ignore[no-redef]
-        def __init__(self, reliability=None, history=None, depth=1) -> None:
+        def __init__(self, reliability=None, history=None, depth=1, durability=None) -> None:
             self.reliability = reliability
             self.history = history
             self.depth = depth
+            self.durability = durability
 
 try:
     from sensor_msgs.msg import LaserScan
@@ -139,6 +151,93 @@ class SensorsMixin:
             self._on_vision_detections,
             10,
         )
+
+    def enable_slam_localization(self) -> None:
+        """Subscribe to slam_bridge and start position fusion."""
+        if not self._slam_subscribed:
+            self._node.create_subscription(
+                FusedPose,
+                '/slam_pose_update',
+                self._on_slam_pose_update,
+                10
+            )
+            # Create a publisher for seeding the SLAM engine.
+            # SLAM nodes usually expect Transient Local durability for seeding.
+            self._pub_initial_pose = self._node.create_publisher(
+                PoseWithCovarianceStamped,
+                '/initialpose',
+                QoSProfile(
+                    reliability=ReliabilityPolicy.RELIABLE,
+                    durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                    history=HistoryPolicy.KEEP_LAST,
+                    depth=1
+                )
+            )
+            self._slam_subscribed = True
+        self._slam_paused = False
+
+    def disable_slam_localization(self) -> None:
+        """Pause SLAM updates. Call enable_slam_localization() to resume."""
+        self._slam_paused = True
+
+    def set_initial_slam_pose(
+        self,
+        x: float,
+        y: float,
+        theta_deg: float,
+        pos_uncertainty_mm: float = 100.0,
+        theta_uncertainty_deg: float = 10.0,
+    ) -> None:
+        """
+        Seed the SLAM engine with a known starting position and heading.
+        Coordinates are in the current user unit (default mm).
+        """
+        # Align firmware odometry heading with the seed heading.
+        self.set_initial_theta(float(theta_deg))
+        
+        # Reset odometry: this clears firmware x/y, aligns heading, and 
+        # triggers the 500ms SLAM blackout in NavigationMixin.
+        self.reset_odometry()
+
+        # CRITICAL: Wait for the firmware to confirm the reset.
+        # This ensures that when we publish the initial pose, AMCL sees 
+        # the robot's odometry at exactly (0, 0, initial_theta).
+        if not self.wait_for_odometry_reset(timeout=2.0):
+            self._node.get_logger().warning(
+                "Odometry reset not confirmed before SLAM seeding. "
+                "The robot may jump on the map."
+            )
+        
+        # Brief pause to allow the ROS middleware to flush the last few 
+        # "pre-reset" kinematics messages.
+        import time
+        time.sleep(0.2)
+
+        if not self._slam_subscribed:
+            self.enable_slam_localization()
+            
+        scale = self._unit.value
+        msg = PoseWithCovarianceStamped()
+        msg.header.stamp = self._node.get_clock().now().to_msg()
+        msg.header.frame_id = 'map'
+        
+        # Convert user units -> mm -> metres for SLAM
+        msg.pose.pose.position.x = (float(x) * scale) / 1000.0
+        msg.pose.pose.position.y = (float(y) * scale) / 1000.0
+        
+        yaw_rad = math.radians(float(theta_deg))
+        msg.pose.pose.orientation.z = math.sin(yaw_rad / 2.0)
+        msg.pose.pose.orientation.w = math.cos(yaw_rad / 2.0)
+        
+        # Covariance matrix (6x6): [x, y, z, roll, pitch, yaw]
+        cov = [0.0] * 36
+        cov[0]  = (float(pos_uncertainty_mm) / 1000.0) ** 2  # x variance (m^2)
+        cov[7]  = (float(pos_uncertainty_mm) / 1000.0) ** 2  # y variance (m^2)
+        cov[35] = math.radians(float(theta_uncertainty_deg)) ** 2 # yaw variance (rad^2)
+        msg.pose.covariance = cov
+        
+        self._pub_initial_pose.publish(msg)
+        self._node.get_logger().info(f"Seeding SLAM at ({x}, {y}, {theta_deg} deg)")
 
     # =========================================================================
     # Subscription callbacks
@@ -286,6 +385,17 @@ class SensorsMixin:
             item.radius = float(track["radius"])
             msg.obstacles.append(item)
         self._pub_obstacle_tracks.publish(msg)
+
+    def _on_slam_pose_update(self, msg: FusedPose) -> None:
+        """Fuses the SLAM data into robot's current estimate"""
+        if self._slam_paused:
+            return
+        
+        with self._lock:
+            self._slam_x_mm = msg.x
+            self._slam_y_mm = msg.y
+            self._slam_theta = msg.theta
+            self._slam_last_time = _time.monotonic()
 
     def _on_vision_detections(self, msg: VisionDetectionArray) -> None:
         detections: list[dict[str, object]] = []
@@ -454,6 +564,24 @@ class SensorsMixin:
     def set_pos_fusion_alpha(self, alpha: float) -> None:
         """Backward-compatible alias for set_position_fusion_alpha()."""
         self.set_position_fusion_alpha(alpha)
+
+    def set_slam_position_fusion_alpha(self, alpha: float) -> None:
+        """
+        Set the SLAM weight for position fusion (0.0–1.0).
+        0.0 = trust odometry only; 1.0 = snap to SLAM each tick.
+        Default is 0.20.
+        """
+        with self._lock:
+            self._slam_pos_fusion.alpha = max(0.0, min(1.0, float(alpha)))
+
+    def set_slam_orientation_fusion_alpha(self, alpha: float) -> None:
+        """
+        Set the SLAM weight for heading fusion (0.0–1.0).
+        Default is 0.20.
+        """
+        with self._lock:
+            if hasattr(self._slam_orientation_fusion, 'alpha'):
+                self._slam_orientation_fusion.alpha = max(0.0, min(1.0, float(alpha)))
 
     # =========================================================================
     # Lidar

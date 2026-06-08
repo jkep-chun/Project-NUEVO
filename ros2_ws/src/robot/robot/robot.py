@@ -11,19 +11,25 @@ import time as _time
 
 from robot.sensor_fusion import GpsTangentOrientationFusion, OrientationComplementaryFilter, PositionComplementaryFilter, SensorFusion
 try:
-    from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+    from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 except (ImportError, ModuleNotFoundError):
     class ReliabilityPolicy:
         BEST_EFFORT = "best_effort"
+        RELIABLE = "reliable"
 
     class HistoryPolicy:
         KEEP_LAST = "keep_last"
 
+    class DurabilityPolicy:
+        VOLATILE = "volatile"
+        TRANSIENT_LOCAL = "transient_local"
+
     class QoSProfile:
-        def __init__(self, reliability=None, history=None, depth=1) -> None:
+        def __init__(self, reliability=None, history=None, depth=1, durability=None) -> None:
             self.reliability = reliability
             self.history = history
             self.depth = depth
+            self.durability = durability
 
 import numpy as np
 
@@ -265,6 +271,18 @@ class Robot(HardwareMixin, SensorsMixin, NavigationMixin, LegacyMixin):
         self._tag_body_offset_y_mm: float = self.TAG_Y_OFFSET_MM
         self._gps_paused:          bool  = False
         self._gps_subscribed:      bool  = False
+
+        # ── SLAM position fusion ──────────────────────────────────────────────
+        self._slam_x_mm:            float = 0.0
+        self._slam_y_mm:            float = 0.0
+        self._slam_theta:           float = 0.0
+        self._slam_last_time:       float = 0.0
+        self._slam_timeout_s:       float = 1.0
+        self._slam_subscribed:      bool  = False
+        self._slam_paused:          bool  = False
+        self._slam_ignore_until:    float = 0.0
+        self._slam_pos_fusion:      PositionComplementaryFilter = PositionComplementaryFilter(alpha=0.20)
+        self._slam_orientation_fusion: OrientationComplementaryFilter = OrientationComplementaryFilter(alpha=0.20)
 
         # ── Lidar ─────────────────────────────────────────────────────────────
         self._lidar_mount_x_mm:      float = self.LIDAR_MOUNT_X_MM

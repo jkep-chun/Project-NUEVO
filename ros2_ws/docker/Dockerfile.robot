@@ -55,6 +55,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip3 install --no-cache-dir --break-system-packages --no-deps \
     ncnn==1.0.20260114
 
+# ── For SLAM support ─────────────────────────────────────────────────────────
+RUN apt-get update && apt-get install -y \
+    ros-jazzy-nav-msgs \
+    ros-jazzy-geometry-msgs \
+    ros-jazzy-tf2-ros \
+    ros-jazzy-slam-toolbox \
+    ros-jazzy-nav2-map-server \
+    ros-jazzy-nav2-amcl \
+    ros-jazzy-nav2-lifecycle-manager \
+    ros-jazzy-foxglove-bridge \
+    && rm -rf /var/lib/apt/lists/*
+
 # ── Initialize rosdep ─────────────────────────────────────────────────────────
 RUN rosdep init || true && rosdep update
 
