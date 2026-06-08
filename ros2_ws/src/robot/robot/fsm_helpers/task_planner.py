@@ -13,6 +13,10 @@ tasks = [
         "lift_init_height": -ih.Bun.HEIGHT_STEPS + hm.LIFT_LIFTOFF_STEPS
     },
     {
+        "state": "WAIT",
+        "trigger": "green_light"
+    }
+    {
         "state": "NAV",
         "path_planner": "pp",
         "waypoints": cp.WP_BURGER_BUN_1, 
