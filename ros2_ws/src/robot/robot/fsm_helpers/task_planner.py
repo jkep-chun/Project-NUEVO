@@ -15,7 +15,7 @@ tasks = [
     {
         "state": "WAIT",
         "trigger": "green_light"
-    }
+    },
     {
         "state": "NAV",
         "path_planner": "pp",
