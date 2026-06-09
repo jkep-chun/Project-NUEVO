@@ -570,6 +570,37 @@ class IdentTask(Task):
         print("[IdentTask] EXIT: Customer match complete.")
 
 
+class PauseTask(Task):
+    def __init__(self, robot: Robot, mission_data: dict, params: dict):
+        super().__init__(robot, mission_data, params)
+        self._is_done = False
+        self._time_pause = params.get("time_pause")
+        self._time_pause_start = None
+
+    def update(self):
+        if self._is_done:
+            return
+
+        now = time.monotonic()
+        if now - self._time_pause_start >= self._time_pause:
+            self._is_done
+            print("[WaitTask] Pause complete.")
+
+    def on_enter(self) -> None:
+        self._robot.stop()
+        self._time_pause_start = time.monotonic()
+        print(f"[PauseTask] Pausing for {self._time_pause} seconds.")
+
+    def on_exit(self) -> None:
+        print(f"[PauseTask] Resuming run.")
+
+    def cancel(self) -> None:
+        super().cancel()
+
+    def is_done(self) -> bool:
+        return self._is_done
+
+
 def build_task(robot: Robot, task_dict: dict, mission_data: dict) -> Task:
     state = task_dict.get("state")
 
@@ -583,5 +614,7 @@ def build_task(robot: Robot, task_dict: dict, mission_data: dict) -> Task:
         return IdentTask(robot, mission_data, task_dict)
     elif state == "HOME":
         return HomeTask(robot, mission_data, task_dict)
+    elif state == "PAUSE":
+        return PauseTask(robot, mission_data, task_dict)
     else:
         return Task(robot, mission_data, task_dict)
