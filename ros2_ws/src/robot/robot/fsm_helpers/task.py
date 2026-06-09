@@ -583,7 +583,7 @@ class PauseTask(Task):
 
         now = time.monotonic()
         if now - self._time_pause_start >= self._time_pause:
-            self._is_done
+            self._is_done = True
             print("[WaitTask] Pause complete.")
 
     def on_enter(self) -> None:
