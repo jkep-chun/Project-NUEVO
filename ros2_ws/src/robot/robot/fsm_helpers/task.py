@@ -151,6 +151,8 @@ class NavTask(Task):
         self._path_planner = self._params.get("path_planner", "pp")
         self._delivery_segment = False
         self._enable_slam_localization = self._params.get("enable_slam_localization", False)
+        self._slam_position_fusion_alpha = self._params.get("slam_position_fusion_alpha", bp.SLAM_POSITION_FUSION_ALPHA)
+        self._slam_orientation_fusion_alpha = self._params.get("slam_orientation_fusion_alpha", bp.SLAM_ORIENTATION_FUSION_ALPHA)
 
         # Profiling parameters
         self._use_profile = self._params.get("use_profile", False)
@@ -188,6 +190,8 @@ class NavTask(Task):
             self._robot.enable_slam_localization()
         else:
             self._robot.disable_slam_localization()
+        self._robot.set_slam_position_fusion_alpha(self._slam_position_fusion_alpha)
+        self._robot.set_slam_orientation_fusion_alpha(self._slam_orientation_fusion_alpha)
 
         self._is_done = False
         self._wp_lapf_idx = 0
