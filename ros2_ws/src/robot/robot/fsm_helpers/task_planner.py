@@ -23,7 +23,7 @@ tasks = [
         "waypoints": cp.WP_BURGER_BUN_1, 
         "goal_heading": 180.0,
         "velocity": 120.0,
-        "use_profile": True,
+        "use_profile": False,
         "enable_slam_localization": True,
         "slam_postion_fusion_alpha": 0.3
     },

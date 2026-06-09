@@ -502,7 +502,7 @@ class ManipTask(Task):
             elif stage == bp.ManipStage.RETREAT:
                 x, y, _ = self._robot.get_pose()
                 x_init, y_init, _ = self._init_pose
-                backoff_distance = math.dist([x, y], [x_init, y_init]) + 30.0
+                backoff_distance = math.dist([x, y], [x_init, y_init]) + 40.0
                 
                 print(f"[ManipTask] Retreating {backoff_distance:.1f} mm, use profile {self._params.get("use_profile")}")
                 self._handle = self._robot.move_backward(
