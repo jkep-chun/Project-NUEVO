@@ -9,7 +9,7 @@ from robot.robot_fsm import RobotFSM
 # TODO: Change path when complete (MED)
 import robot.fsm_helpers.firmware_helpers as fh
 import robot.hardware_map as hm
-from robot.fsm_helpers.task_planner import tasks
+from robot.fsm_helpers.task_planner import tasks, ingredients
 from robot.fsm_helpers.task import build_task, Task
 
 LOG_DIR = "/runtime_output/logs"
@@ -27,13 +27,8 @@ class MissionFSM(RobotFSM):
         self.tasks = task_list
         self.current_task: Task = None
         self.task_idx = 0
-        self.mission_data = {
-            "waypoints": [],
-            "vertices": [],
-            "burger_stack": [],
-            "delivery_status": False,
-            "matched_customer": None
-        }
+
+        self._reset_mission_data()
 
         # Execution
         self.timer_start = None
@@ -106,6 +101,8 @@ class MissionFSM(RobotFSM):
         self.mission_data = {
             "waypoints": [],
             "vertices": [],
+            "ingredients": ingredients,
+            "ingredient_idx": 0,
             "burger_stack": [],
             "delivery_status": False,
             "matched_customer": None

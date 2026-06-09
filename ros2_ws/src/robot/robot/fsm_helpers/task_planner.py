@@ -7,51 +7,64 @@ from robot.fsm_helpers import ingredient_helpers as ih
 import robot.hardware_map as hm
 from robot.fsm_helpers.course_parameters import SQ
 
+ingredients = [ih.Bun, ih.Patty, ih.Bun]
 tasks = [
-    # {
-    #     "state": "HOME",
-    #     "lift_init_height": -ih.Bun.HEIGHT_STEPS + hm.LIFT_LIFTOFF_STEPS
-    # },
-    # {
-    #     "state": "WAIT",
-    #     "trigger": "green_light"
-    # },
-    # {
-    #     "state": "NAV",
-    #     "path_planner": "pp",
-    #     "waypoints": cp.WP_BURGER_BUN_1, 
-    #     "goal_heading": 180.0,
-    #     "enable_slam_localization": True
-    # },
-    # {
-    #     "state": "MANIP",
-    #     "command": "pick",
-    #     "ingredient": ih.Bun
-    # },
-    # {
-    #     "state": "NAV",
-    #     "path_planner": "pp",
-    #     "waypoints": cp.WP_BURGER_PATTY,
-    #     "goal_heading": 180.0,
-    #     "enable_slam_localization": True
-    # },
-    # {
-    #     "state": "MANIP",
-    #     "command": "pick",
-    #     "ingredient": ih.Patty
-    # },
-    # {
-    #     "state": "NAV",
-    #     "path_planner": "pp",
-    #     "waypoints": cp.WP_BURGER_BUN_2,
-    #     "goal_heading": 180.0,
-    #     "enable_slam_localization": True
-    # },
-    # {
-    #     "state": "MANIP", 
-    #     "command": "pick", 
-    #     "ingredient": ih.Bun
-    # },
+    {
+        "state": "HOME",
+        "lift_init_height": -ih.Bun.HEIGHT_STEPS + hm.LIFT_LIFTOFF_STEPS
+    },
+    {
+        "state": "WAIT",
+        "trigger": "green_light"
+    },
+    {
+        "state": "NAV",
+        "path_planner": "pp",
+        "waypoints": cp.WP_BURGER_BUN_1, 
+        "goal_heading": 180.0,
+        "velocity": 120.0,
+        "use_profile": True,
+        "enable_slam_localization": True,
+        "slam_postion_fusion_alpha": 0.3
+    },
+    {
+        "state": "MANIP",
+        "command": "pick",
+        "ingredient": ih.Bun,
+        "use_profile": True,
+    },
+    {
+        "state": "NAV",
+        "path_planner": "pp",
+        "waypoints": cp.WP_BURGER_PATTY,
+        "goal_heading": 180.0,
+        "velocity": 120.0,
+        "use_profile": True,
+        "enable_slam_localization": True,
+        "slam_postion_fusion_alpha": 0.0,
+    },
+    {
+        "state": "MANIP",
+        "command": "pick",
+        "ingredient": ih.Patty,
+        "use_profile": False,
+    },
+    {
+        "state": "NAV",
+        "path_planner": "pp",
+        "waypoints": cp.WP_BURGER_BUN_2,
+        "goal_heading": 180.0,
+        "velocity": 120.0,
+        "use_profile": True,
+        "enable_slam_localization": True,
+        "slam_postion_fusion_alpha": 0.0
+    },
+    {
+        "state": "MANIP", 
+        "command": "pick", 
+        "ingredient": ih.Bun,
+        "use_profile": True,
+    },
     {
         "state": "NAV", 
         "path_planner": "pp", 
@@ -65,32 +78,32 @@ tasks = [
         "goal_heading": 0.0,
         "enable_slam_localization": True
     },
-    # {
-    #     "state": "IDENT"
-    # },
-    # {
-    #     "state": "NAV", 
-    #     "path_planner": "pp",
-    #     "waypoints": [cp.WP5],
-    #     "goal_heading": 0.0,
-    #     "enable_slam_localization": True
-    # },
-    # {
-    #     "state": "MANIP", "command": "place"
-    # },
-    # {
-    #     "state": "NAV", 
-    #     "path_planner": "pp",
-    #     "waypoints": [cp.WP5B],
-    #     "enable_slam_localization": True
-    # },
-    # {
-    #     "state": "PAUSE", 
-    #     "time_pause": 2.5
-    # },
-    # {
-    #     "state": "NAV", 
-    #     "path_planner": "pp",
-    #     "waypoints": [cp.WP6],
-    # },
+    {
+        "state": "IDENT"
+    },
+    {
+        "state": "NAV", 
+        "path_planner": "pp",
+        "waypoints": [cp.WP5],
+        "goal_heading": 0.0,
+        "enable_slam_localization": True
+    },
+    {
+        "state": "MANIP", "command": "place"
+    },
+    {
+        "state": "NAV", 
+        "path_planner": "pp",
+        "waypoints": [cp.WP5B],
+        "enable_slam_localization": True
+    },
+    {
+        "state": "PAUSE", 
+        "time_pause": 2.5
+    },
+    {
+        "state": "NAV", 
+        "path_planner": "pp",
+        "waypoints": [cp.WP6],
+    },
 ]

@@ -46,9 +46,14 @@ def generate_open_rounded_path(vertices, R, ds):
 
         d = R / np.tan(theta / 2)
 
-        # Safety Check: Ensure the radius fits within the straight edge constraints
-        # Use min() to ensure we don't overshoot the shorter segment.
-        d_limit = min(len_u, len_v) / 2
+        # Safety Check: Ensure the radius fits within the straight edge constraints.
+        # Intermediate segments (between two rounded corners) should only use up to 50%
+        # of their length for each corner. The first and last segments of the path
+        # (connected to non-rounded start/end points) can use 100% of their length.
+        limit_u = len_u if i == 1 else len_u / 2
+        limit_v = len_v if i == num_verts - 2 else len_v / 2
+        d_limit = min(limit_u, limit_v)
+        
         if d > d_limit:
             d = d_limit
             # We must update the effective radius to match the capped distance d

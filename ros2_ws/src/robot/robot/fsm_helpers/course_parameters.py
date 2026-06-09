@@ -3,7 +3,7 @@ Course-specific geometry
 """
 SQ = 605.2 # Length of one square in mm
 
-INIT_POSE         = (0.0, 0.0, 90.0)
+INIT_POSE         = (0.0, 0.0, 90.0, 40.0, 8.0)
 
 WP_BURGER_BUN_1   = (0*SQ,    1.75*SQ)
 WP_BURGER_PATTY   = (0*SQ,    2*SQ)

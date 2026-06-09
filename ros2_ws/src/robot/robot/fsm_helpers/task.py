@@ -427,15 +427,27 @@ class ManipTask(Task):
     def __init__(self, robot: Robot, mission_data: dict, params: dict):
         super().__init__(robot, mission_data, params)
         self._is_done = False
+        self._mission_data = mission_data
+        self._init_pose = self._robot.get_pose()
         
         self._command = self._params.get("command")
         if self._command == "pick":
+            ingredients = self._mission_data.get("ingredients")
+            ingredient_idx = self._mission_data.get("ingredient_idx")
+            self._ingredient = ingredients[ingredient_idx]
+
             self._sequence = bp.PICK_SEQUENCE
-            ingredient = self._params.get("ingredient")
-            self._raise_steps = hm.LIFT_LIFTOFF_STEPS - ingredient.HEIGHT_STEPS
+            self._level_height = hm.LIFT_LIFTOFF_STEPS - self._ingredient.HEIGHT_STEPS
+            self._close_deg = self._ingredient.GRIP_ANGLE
+            self._raise_steps = hm.LIFT_LIFTOFF_STEPS
+            if ingredient_idx + 1 < len(ingredients):
+                self._raise_steps -= ingredients[ingredient_idx + 1].HEIGHT_STEPS
+            else:
+                self._raise_steps -= hm.LIFT_LIFTOFF_BUFFER_STEPS
 
         elif self._command == "place":
             self._sequence = bp.PLACE_SEQUENCE
+            self._level_height = hm.LIFT_LIFTOFF_STEPS - hm.LIFT_LIFTOFF_BUFFER_STEPS
             self._raise_steps = hm.LIFT_LIFTOFF_STEPS
             for ingredient in self._mission_data["burger_stack"]:
                 self._raise_steps -= ingredient.HEIGHT_STEPS
@@ -443,14 +455,7 @@ class ManipTask(Task):
         else:
             self._sequence = []
             self._is_done = True
-
-        self._ingredient = self._params.get("ingredient")
-        if self._command == "pick":
-            self._level_height = hm.LIFT_LIFTOFF_STEPS - self._ingredient.HEIGHT_STEPS
-            self._close_deg = self._ingredient.GRIP_ANGLE
-        elif self._command == "place":
-            self._level_height = -600 # TODO: Add parameter (LOW)
-        
+     
         self._idx = 0
         self._handle = None
         self._stage_init = True
@@ -459,6 +464,7 @@ class ManipTask(Task):
         """Enable manipulator hardware once at task start."""
         self._robot.step_enable(hm.LIFT_STEPPER_ID)
         self._robot.enable_servo(hm.GRIPPER_SERVO_ID)
+        print(f"Use profile: {self._params.get("use_profile")}")
 
     def on_exit(self) -> None:
         """Disable power-hungry manipulator hardware upon exit."""
@@ -495,20 +501,13 @@ class ManipTask(Task):
                 self._handle = fh.approach_ingredient_table(self._robot)
             elif stage == bp.ManipStage.RETREAT:
                 x, y, _ = self._robot.get_pose()
+                x_init, y_init, _ = self._init_pose
+                backoff_distance = math.dist([x, y], [x_init, y_init]) + 45.0
                 
-                # Default backoff if nav data is missing
-                backoff_distance = 100.0 
-                
-                if "waypoints" in self._mission_data and self._mission_data["waypoints"]:
-                    # Retrieve the last waypoint of the last navigation task
-                    # This represents the pose before the 'FORWARD' approach stage
-                    last_wp = self._mission_data["waypoints"][-1]
-                    backoff_distance = math.dist([x, y], last_wp) + 35.0 # TODO: GET RID?
-                
-                print(f"[ManipTask] Retreating {backoff_distance:.1f} mm")
+                print(f"[ManipTask] Retreating {backoff_distance:.1f} mm, use profile {self._params.get("use_profile")}")
                 self._handle = self._robot.move_backward(
                     distance=backoff_distance,
-                    velocity=self._params.get("velocity", bp.VELOCITY_MM_S),
+                    velocity=self._params.get("velocity", bp.APPROACH_VEL_MM_S),
                     tolerance=bp.TOLERANCE_MM,
                     blocking=False,
                     use_profile=self._params.get("use_profile", False),
@@ -545,6 +544,7 @@ class ManipTask(Task):
                 self._stage_init = True
             else:
                 self._is_done = True
+                self._mission_data["ingredient_idx"] += 1
 
     def cancel(self) -> None:
         if self._handle:
