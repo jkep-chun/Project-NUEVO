@@ -47,7 +47,7 @@ tasks = [
         "state": "MANIP",
         "command": "pick",
         "ingredient": ih.Patty,
-        "use_profile": False,
+        "use_profile": True,
     },
     {
         "state": "NAV",
@@ -89,7 +89,8 @@ tasks = [
         "enable_slam_localization": True
     },
     {
-        "state": "MANIP", "command": "place"
+        "state": "MANIP", "command": "place",
+        "use_profile": True
     },
     {
         "state": "NAV", 
