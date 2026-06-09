@@ -48,13 +48,23 @@ inline int32_t pidStepQ16(int32_t &iAccQ16,
                           int32_t errQ16,
                           int32_t outMinQ16,
                           int32_t outMaxQ16) {
-    iAccQ16 += (int32_t)(((int64_t)kiDtQ16 * errQ16) >> 16);
-    if (iAccQ16 > outMaxQ16) iAccQ16 = outMaxQ16;
-    if (iAccQ16 < outMinQ16) iAccQ16 = outMinQ16;
-
     int32_t pTermQ16 = (int32_t)(((int64_t)kpQ16 * errQ16) >> 16);
     int32_t dTermQ16 = (int32_t)(((int64_t)kdDivDtQ16 * (errQ16 - prevErrQ16)) >> 16);
     prevErrQ16 = errQ16;
+
+    // Calculate preliminary output without the new integration to check for saturation
+    int32_t currentOutQ16 = pTermQ16 + iAccQ16 + dTermQ16;
+
+    // Conditional Integration (Clamping Anti-Windup):
+    // Only integrate if the output is not saturated OR if integration would help pull it out of saturation.
+    bool saturatedPos = (currentOutQ16 >= outMaxQ16 && errQ16 > 0);
+    bool saturatedNeg = (currentOutQ16 <= outMinQ16 && errQ16 < 0);
+
+    if (!saturatedPos && !saturatedNeg) {
+        iAccQ16 += (int32_t)(((int64_t)kiDtQ16 * errQ16) >> 16);
+        if (iAccQ16 > outMaxQ16) iAccQ16 = outMaxQ16;
+        if (iAccQ16 < outMinQ16) iAccQ16 = outMinQ16;
+    }
 
     int32_t outQ16 = pTermQ16 + iAccQ16 + dTermQ16;
     if (outQ16 > outMaxQ16) outQ16 = outMaxQ16;
@@ -545,10 +555,25 @@ void DCMotor::service() {
             velPrevErrQ16_ = 0;
             nextPwm = 0;
         } else {
+            // When commanding a stop but still moving fast (braking phase), 
+            // inhibit the integrator if it opposes the braking effort.
+            if (currentVelocitySetpointQ16 == 0) {
+                if (feedbackVelocityQ16 > 0 && velIAccQ16_ > 0) velIAccQ16_ = 0;
+                else if (feedbackVelocityQ16 < 0 && velIAccQ16_ < 0) velIAccQ16_ = 0;
+            }
+
             int32_t velErrQ16 = currentVelocitySetpointQ16 - feedbackVelocityQ16;
+            
+            // Saturation-aware clamping: prevent integrator from winding up into the "dead zone"
+            // created by the additive deadband offset. We use the static deadband when stopped
+            // to ensure the break-out torque doesn't cause immediate overshoot.
+            float dbVal = (feedbackVelocityQ16 == 0) ? deadbandStatic_ : deadbandKinetic_;
+            int32_t effectiveLimitQ16 = PWM_LIMIT_Q16 - floatToQ16(dbVal);
+            if (effectiveLimitQ16 < 0) effectiveLimitQ16 = 0;
+
             int32_t pwmQ16 = pidStepQ16(velIAccQ16_, velPrevErrQ16_,
                                         velKpQ16_, velKiDtQ16_, velKdDivDtQ16_,
-                                        velErrQ16, -PWM_LIMIT_Q16, PWM_LIMIT_Q16);
+                                        velErrQ16, -effectiveLimitQ16, effectiveLimitQ16);
             nextPwm = (int16_t)(pwmQ16 >> 16);
 
             if (nextPwm != 0) {
