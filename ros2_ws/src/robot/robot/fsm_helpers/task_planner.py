@@ -9,74 +9,24 @@ from robot.fsm_helpers.course_parameters import SQ
 
 ingredients = [ih.Bun, ih.Patty, ih.Bun]
 tasks = [
-    {
-        "state": "HOME",
-        "lift_init_height": -ih.Bun.HEIGHT_STEPS + hm.LIFT_LIFTOFF_STEPS
-    },
-    {
-        "state": "WAIT",
-        "trigger": "green_light"
-    },
-    {
-        "state": "NAV",
-        "path_planner": "pp",
-        "waypoints": cp.WP_BURGER_BUN_1, 
-        "goal_heading": 180.0,
-        "velocity": 120.0,
-        "use_profile": False,
-        "enable_slam_localization": True,
-        "slam_postion_fusion_alpha": 0.3
-    },
-    {
-        "state": "MANIP",
-        "command": "pick",
-        "ingredient": ih.Bun,
-        "use_profile": True,
-    },
-    {
-        "state": "NAV",
-        "path_planner": "pp",
-        "waypoints": cp.WP_BURGER_PATTY,
-        "goal_heading": 180.0,
-        "velocity": 120.0,
-        "use_profile": True,
-        "enable_slam_localization": True,
-        "slam_postion_fusion_alpha": 0.0,
-    },
-    {
-        "state": "MANIP",
-        "command": "pick",
-        "ingredient": ih.Patty,
-        "use_profile": True,
-    },
-    {
-        "state": "NAV",
-        "path_planner": "pp",
-        "waypoints": cp.WP_BURGER_BUN_2,
-        "goal_heading": 180.0,
-        "velocity": 120.0,
-        "use_profile": True,
-        "enable_slam_localization": True,
-        "slam_postion_fusion_alpha": 0.0
-    },
-    {
-        "state": "MANIP", 
-        "command": "pick", 
-        "ingredient": ih.Bun,
-        "use_profile": True,
-    },
+    # /
     {
         "state": "NAV", 
         "path_planner": "pp", 
         "waypoints": [cp.WP1, cp.WP2, cp.WP3, cp.WP3B, cp.WP3C],
-        "enable_slam_localization": True
+        "velocity": 310.0,
+        "use_profile": True,
+        "enable_slam_localization": True,
+        "slam_position_fusion_alpha": 0.2,
+        "slam_orientation_fusion_alpha": 0.2,
     },
     {
         "state": "NAV",
         "path_planner": "lapf",
         "waypoints": [cp.WP4B, cp.WP_CUSTOMER_ID],
+        "velocity": 300.0,
         "goal_heading": 0.0,
-        "enable_slam_localization": True
+        "enable_slam_localization": True,
     },
     {
         "state": "IDENT"
@@ -85,8 +35,11 @@ tasks = [
         "state": "NAV", 
         "path_planner": "pp",
         "waypoints": [cp.WP5],
+        "velocity": 320.0,
+        "use_profile": True,
         "goal_heading": 0.0,
-        "enable_slam_localization": True
+        "enable_slam_localization": True,
+        "slam_position_fusion_alpha": 0.08
     },
     {
         "state": "MANIP", "command": "place",
@@ -96,7 +49,10 @@ tasks = [
         "state": "NAV", 
         "path_planner": "pp",
         "waypoints": [cp.WP5B],
-        "enable_slam_localization": True
+        "velocity": 300.0,
+        "use_profile": True,
+        "enable_slam_localization": True,
+        "slam_position_fusion_alpha": 0.08,
     },
     {
         "state": "PAUSE", 
@@ -106,5 +62,7 @@ tasks = [
         "state": "NAV", 
         "path_planner": "pp",
         "waypoints": [cp.WP6],
+        "velocity": 300.0,
+        "use_profile": True,
     },
 ]
