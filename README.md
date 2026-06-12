@@ -2,6 +2,9 @@
 ![](/assets/NUEVO.png)
 
 Lab project material for the MAE 162 robotics course (Winter/Spring 2026).
+## Gallery
+
+See our [gallery](https://pochihh.github.io/ucla-162-gallery)!
 
 ## Overview
 Our finished autonomous rover is designed to navigate a predefined maze-like map populated with arbitrary obstacles, traversing ~16 meters in three minutes or less while picking up and assembling mock burger ingredients, identifying the target customer, and delivering the mock burger. Its main features are: differential drive, a 2DOF manipulator to pick and place mock burger ingredients, fusion of AMCL pose estimates and odometry for localization, computer vision (CV) for traffic light detection and customer identification, and path planning with the novel LAPF algorithm and path smoothing, all designed with modularity and scale in mind, being easily configurable for additional burger ingredients in any order, changes in venue layout, and reordering of tasks.
