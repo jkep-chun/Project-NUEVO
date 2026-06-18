@@ -7,6 +7,7 @@ from robot.fsm_helpers import ingredient_helpers as ih
 import robot.hardware_map as hm
 from robot.fsm_helpers.course_parameters import SQ
 
+ingredients = [ih.Bun, ih.Patty, ih.Bun]
 tasks = [
     {
         "state": "HOME",
@@ -21,41 +22,53 @@ tasks = [
         "path_planner": "pp",
         "waypoints": cp.WP_BURGER_BUN_1, 
         "goal_heading": 180.0,
-        "enable_slam_localization": True
+        "velocity": 120.0,
+        "use_profile": False,
+        "enable_slam_localization": True,
+        "slam_postion_fusion_alpha": 0.3
     },
     {
         "state": "MANIP",
         "command": "pick",
-        "ingredient": ih.Bun
+        "ingredient": ih.Bun,
+        "use_profile": True,
     },
     {
         "state": "NAV",
         "path_planner": "pp",
         "waypoints": cp.WP_BURGER_PATTY,
         "goal_heading": 180.0,
-        "enable_slam_localization": True
+        "velocity": 120.0,
+        "use_profile": True,
+        "enable_slam_localization": True,
+        "slam_postion_fusion_alpha": 0.0,
     },
     {
         "state": "MANIP",
         "command": "pick",
-        "ingredient": ih.Patty
+        "ingredient": ih.Patty,
+        "use_profile": True,
     },
     {
         "state": "NAV",
         "path_planner": "pp",
         "waypoints": cp.WP_BURGER_BUN_2,
         "goal_heading": 180.0,
-        "enable_slam_localization": True
+        "velocity": 120.0,
+        "use_profile": True,
+        "enable_slam_localization": True,
+        "slam_postion_fusion_alpha": 0.0
     },
     {
         "state": "MANIP", 
         "command": "pick", 
-        "ingredient": ih.Bun
+        "ingredient": ih.Bun,
+        "use_profile": True,
     },
     {
         "state": "NAV", 
         "path_planner": "pp", 
-        "waypoints": [cp.WP1, cp.WP2, cp.WP3, cp.WP4],
+        "waypoints": [cp.WP1, cp.WP2, cp.WP3, cp.WP3B, cp.WP3C],
         "enable_slam_localization": True
     },
     {
@@ -76,7 +89,8 @@ tasks = [
         "enable_slam_localization": True
     },
     {
-        "state": "MANIP", "command": "place"
+        "state": "MANIP", "command": "place",
+        "use_profile": True
     },
     {
         "state": "NAV", 

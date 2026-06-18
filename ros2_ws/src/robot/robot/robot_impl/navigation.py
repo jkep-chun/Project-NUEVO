@@ -551,6 +551,9 @@ class NavigationMixin:
         tolerance: float,
         blocking: bool = True,
         timeout: float = None,
+        use_profile: bool = True,
+        accel: float | None = None,
+        decel: float | None = None,
     ) -> MotionHandle:
         """
         Navigate to (x, y) at the given speed using pure-pursuit steering.
@@ -565,7 +568,10 @@ class NavigationMixin:
         lookahead_mm = max(tol_mm * 2.0, 100.0)
 
         def target():
-            self._nav_follow_purepursuit_path([(x_mm, y_mm)], vel_mm, lookahead_mm, tol_mm, 2.0)
+            self._nav_follow_purepursuit_path(
+                [(x_mm, y_mm)], vel_mm, lookahead_mm, tol_mm, tolerance_mm=tol_mm,
+                use_profile=use_profile, accel=accel, decel=decel
+            )
 
         return self._start_nav(target, blocking, timeout)
 
@@ -577,11 +583,15 @@ class NavigationMixin:
         tolerance: float,
         blocking: bool = True,
         timeout: float = None,
+        use_profile: bool = True,
+        accel: float | None = None,
+        decel: float | None = None,
     ) -> MotionHandle:
         """Navigate by (dx, dy) relative to current pose."""
         cur_x, cur_y, _ = self.get_pose()
         return self.move_to(cur_x + dx, cur_y + dy, velocity,
-                            blocking=blocking, tolerance=tolerance, timeout=timeout)
+                            blocking=blocking, tolerance=tolerance, timeout=timeout,
+                            use_profile=use_profile, accel=accel, decel=decel)
 
     def move_forward(
         self,
@@ -590,6 +600,9 @@ class NavigationMixin:
         tolerance: float,
         blocking: bool = True,
         timeout: float = None,
+        use_profile: bool = True,
+        accel: float | None = None,
+        decel: float | None = None,
     ) -> MotionHandle:
         """Drive straight forward by distance along the robot's current heading."""
         distance = self._require_positive_float("distance", distance)
@@ -598,7 +611,9 @@ class NavigationMixin:
         tol_mm   = tolerance * self._unit.value
 
         def target():
-            self._nav_drive_straight(dist_mm, vel_mm, tol_mm)
+            self._nav_drive_straight(
+                dist_mm, vel_mm, tol_mm, use_profile=use_profile, accel=accel, decel=decel
+            )
 
         return self._start_nav(target, blocking, timeout)
 
@@ -609,6 +624,9 @@ class NavigationMixin:
         tolerance: float,
         blocking: bool = True,
         timeout: float = None,
+        use_profile: bool = True,
+        accel: float | None = None,
+        decel: float | None = None,
     ) -> MotionHandle:
         """Drive straight backward by distance along the robot's current heading."""
         distance = self._require_positive_float("distance", distance)
@@ -617,7 +635,9 @@ class NavigationMixin:
         tol_mm   = tolerance * self._unit.value
 
         def target():
-            self._nav_drive_straight(-dist_mm, vel_mm, tol_mm)
+            self._nav_drive_straight(
+                -dist_mm, vel_mm, tol_mm, use_profile=use_profile, accel=accel, decel=decel
+            )
 
         return self._start_nav(target, blocking, timeout)
 
@@ -627,6 +647,9 @@ class NavigationMixin:
         blocking: bool = True,
         tolerance_deg: float = 2.0,
         timeout: float = None,
+        use_profile: bool = True,
+        accel: float | None = None,
+        decel: float | None = None,
     ) -> MotionHandle:
         """
         Rotate to an absolute heading. Firmware must be in RUNNING state.
@@ -638,7 +661,9 @@ class NavigationMixin:
         tol_rad    = math.radians(tolerance_deg)
 
         def target():
-            self._turn_to_heading(target_rad, tol_rad, max_angular_rad=1.0)
+            self._turn_to_heading(
+                target_rad, tol_rad, max_angular_rad=1.0, use_profile=use_profile, accel=accel, decel=decel
+            )
 
         return self._start_nav(target, blocking, timeout)
 
@@ -648,11 +673,15 @@ class NavigationMixin:
         blocking: bool = True,
         tolerance_deg: float = 2.0,
         timeout: float = None,
+        use_profile: bool = True,
+        accel: float | None = None,
+        decel: float | None = None,
     ) -> MotionHandle:
         """Rotate by delta_deg relative to current heading."""
         _, _, cur_deg = self.get_pose()
         return self.turn_to(cur_deg + delta_deg, blocking=blocking,
-                            tolerance_deg=tolerance_deg, timeout=timeout)
+                            tolerance_deg=tolerance_deg, timeout=timeout,
+                            use_profile=use_profile, accel=accel, decel=decel)
 
     def purepursuit_follow_path(
         self,
@@ -665,6 +694,9 @@ class NavigationMixin:
         timeout: float = None,
         *,
         advance_radius: float | None = None,
+        use_profile: bool = True,
+        accel: float | None = None,
+        decel: float | None = None,
     ) -> MotionHandle:
         """
         Follow an ordered waypoint path with pure pursuit.
@@ -695,7 +727,8 @@ class NavigationMixin:
 
         def target():
             self._nav_follow_purepursuit_path(
-                path_mm, vel_mm, lookahead_mm, advance_radius_mm, tolerance_mm, max_angular
+                path_mm, vel_mm, lookahead_mm, advance_radius_mm, tolerance_mm, max_angular,
+                use_profile=use_profile, accel=accel, decel=decel
             )
 
         return self._start_nav(target, blocking, timeout)
@@ -716,6 +749,9 @@ class NavigationMixin:
         robot_half_width_mm: float = 200.0,
         *,
         advance_radius: float | None = None,
+        use_profile: bool = True,
+        accel: float | None = None,
+        decel: float | None = None,
     ) -> MotionHandle:
         """
         Follow an ordered waypoint path with artificial potential fields.
@@ -753,6 +789,7 @@ class NavigationMixin:
                 path_mm, vel_mm, lookahead_mm, advance_radius_mm, tolerance_mm,
                 repulsion_range_mm, max_angular, repulsion_gain,
                 front_mm, rear_mm, half_width_mm,
+                use_profile=use_profile, accel=accel, decel=decel
             )
 
         return self._start_nav(target, blocking, timeout)
@@ -774,6 +811,9 @@ class NavigationMixin:
         inflation_margin_mm: float | None = None,
         leash_half_angle_deg: float | None = None,
         timeout: float = None,
+        use_profile: bool = True,
+        accel: float | None = None,
+        decel: float | None = None,
     ) -> MotionHandle:
         """
         Navigate to one goal using a leashed APF virtual target.
@@ -827,6 +867,9 @@ class NavigationMixin:
                 force_ema_alpha,
                 inflation_margin_mm,
                 leash_half_angle_deg,
+                use_profile=use_profile,
+                accel=accel,
+                decel=decel,
             )
 
         return self._start_nav(target, blocking, timeout)
@@ -849,6 +892,9 @@ class NavigationMixin:
         timeout: float = None,
         *,
         advance_radius: float | None = None,
+        use_profile: bool = True,
+        accel: float | None = None,
+        decel: float | None = None,
     ) -> MotionHandle:
         """
         Follow an ordered waypoint path with leashed APF.
@@ -882,7 +928,8 @@ class NavigationMixin:
                 path_mm, vel_mm, lookahead_mm, advance_radius_mm, tolerance_mm,
                 repulsion_range_mm, max_angular, repulsion_gain,
                 attraction_gain, force_ema_alpha, inflation_mm,
-                leash_len_mm, leash_angle
+                leash_len_mm, leash_angle,
+                use_profile=use_profile, accel=accel, decel=decel
             )
 
         return self._start_nav(target, blocking, timeout)
@@ -1016,6 +1063,9 @@ class NavigationMixin:
         tolerance_mm: float,
         heading_kp: float = 3.0,
         update_hz: float = float(DEFAULT_NAV_HZ),
+        use_profile: bool = True,
+        accel: float | None = None,
+        decel: float | None = None,
     ) -> None:
         """
         Navigation thread body: drive straight along the heading at call time.
@@ -1054,15 +1104,18 @@ class NavigationMixin:
             # back CW regardless of whether it is moving forward or backward.
             angular = heading_kp * heading_err
 
-            # Apply trapezoidal velocity profile
-            speed = VelocityProfile.trapezoidal(
-                dist_from_start = abs(traveled),
-                dist_to_goal = abs(remaining),
-                max_v = velocity_mm,
-                accel = bp.MAX_ACCEL_MM_S2,
-                decel = bp.MAX_DECEL_MM_S2,
-                min_v = velocity_mm * 0.15
-            )
+            if use_profile:
+                # Apply trapezoidal velocity profile
+                speed = VelocityProfile.trapezoidal(
+                    dist_from_start = abs(traveled),
+                    dist_to_goal = abs(remaining),
+                    max_v = velocity_mm,
+                    accel = accel or bp.MAX_ACCEL_MM_S2,
+                    decel = decel or bp.MAX_DECEL_MM_S2,
+                    min_v = velocity_mm * 0.15
+                )
+            else:
+                speed = velocity_mm
             linear = direction * speed
 
             self._send_body_velocity_mm(linear, angular)
@@ -1080,6 +1133,9 @@ class NavigationMixin:
         tolerance_mm: float,
         max_angular_rad_s: float = 1.0,
         update_hz: float = float(DEFAULT_NAV_HZ),
+        use_profile: bool = True,
+        accel: float | None = None,
+        decel: float | None = None,
     ) -> None:
         """Navigation thread body: pure-pursuit to an ordered list of waypoints (mm)."""
         from robot.path_planner import PurePursuitPlanner
@@ -1090,7 +1146,7 @@ class NavigationMixin:
         )
         self._nav_follow_path(
             waypoints_mm, planner, max_vel_mm, advance_radius_mm, tolerance_mm,
-            update_hz=update_hz,
+            update_hz=update_hz, use_profile=use_profile, accel=accel, decel=decel
         )
 
     def _nav_follow_apf_path(
@@ -1107,6 +1163,9 @@ class NavigationMixin:
         robot_rear_mm: float = 100.0,
         robot_half_width_mm: float = 200.0,
         update_hz: float = float(DEFAULT_NAV_HZ),
+        use_profile: bool = True,
+        accel: float | None = None,
+        decel: float | None = None,
     ) -> None:
         """Navigation thread body: APF path following via sequential single-goal APF.
 
@@ -1116,6 +1175,9 @@ class NavigationMixin:
         obstacle cloud.
         """
         from robot.path_planner import APFPlanner
+        from robot.util import VelocityProfile
+        from robot.fsm_helpers import burgerbot_parameters as bp
+
         planner = APFPlanner(
             max_linear=max_vel_mm,
             max_angular=max_angular_rad_s,
@@ -1133,16 +1195,41 @@ class NavigationMixin:
         fetch_radius_mm = (repulsion_range_mm + robot_front_mm + robot_half_width_mm
                            + float(self.APF_TRACK_INPUT_MARGIN_MM))
 
+        # For profiling, we need the initial distance
+        start_pose = self._get_pose_mm()
+        total_dist = _dist2d(start_pose[0], start_pose[1], remaining_path[0][0], remaining_path[0][1])
+        # This is a simplification; for APF we usually don't have a fixed path length
+        # unless we compute it from waypoints.
+        from robot.util import get_path_length
+        total_dist += get_path_length(remaining_path)
+
         while not self._nav_cancel.is_set():
-            x_mm, y_mm, theta_rad = self._get_pose_mm()
+            pose_mm = self._get_pose_mm()
+            x_mm, y_mm, theta_rad = pose_mm
             remaining_path = self._advance_remaining_path(
                 remaining_path, x_mm, y_mm, advance_radius_mm
             )
 
             goal_x_mm, goal_y_mm = remaining_path[0]
-            if len(remaining_path) == 1 and _dist2d(x_mm, y_mm, goal_x_mm, goal_y_mm) <= tolerance_mm:
+            dist_to_next = _dist2d(x_mm, y_mm, goal_x_mm, goal_y_mm)
+            if len(remaining_path) == 1 and dist_to_next <= tolerance_mm:
                 self.stop()
                 return
+
+            if use_profile:
+                dist_to_goal = dist_to_next + get_path_length(remaining_path)
+                dist_from_start = total_dist - dist_to_goal
+                target_v = VelocityProfile.trapezoidal(
+                    dist_from_start = dist_from_start,
+                    dist_to_goal = dist_to_goal,
+                    max_v = max_vel_mm,
+                    accel = accel or bp.MAX_ACCEL_MM_S2,
+                    decel = decel or bp.MAX_DECEL_MM_S2,
+                    min_v = max_vel_mm * 0.15
+                )
+                planner._max_linear = target_v
+            else:
+                planner._max_linear = max_vel_mm
 
             obstacle_disks = self._get_nearest_tracked_obstacle_disks_world_mm(
                 (x_mm, y_mm, theta_rad),
@@ -1176,6 +1263,9 @@ class NavigationMixin:
         inflation_margin_mm: float,
         leash_half_angle_deg: float,
         update_hz: float = float(DEFAULT_NAV_HZ),
+        use_profile: bool = True,
+        accel: float | None = None,
+        decel: float | None = None,
     ) -> None:
         from robot.path_planner import LeashedAPFPlanner
         from robot.fsm_helpers import burgerbot_parameters as bp
@@ -1218,15 +1308,18 @@ class NavigationMixin:
                 self._set_virtual_target_world_mm(None)
                 return
 
-            dist_from_start = total_dist - dist_to_goal
-            target_v = VelocityProfile.trapezoidal(
-                dist_from_start = dist_from_start,
-                dist_to_goal = dist_to_goal,
-                max_v = max_vel_mm,
-                accel = bp.MAX_ACCEL_MM_S2,
-                decel = bp.MAX_DECEL_MM_S2,
-                min_v = max_vel_mm * 0.15
-            )
+            if use_profile:
+                dist_from_start = total_dist - dist_to_goal
+                target_v = VelocityProfile.trapezoidal(
+                    dist_from_start = dist_from_start,
+                    dist_to_goal = dist_to_goal,
+                    max_v = max_vel_mm,
+                    accel = accel or bp.MAX_ACCEL_MM_S2,
+                    decel = decel or bp.MAX_DECEL_MM_S2,
+                    min_v = max_vel_mm * 0.15
+                )
+            else:
+                target_v = max_vel_mm
             planner._max_linear = target_v
             planner._target_speed = target_v * 1.2
 
@@ -1266,6 +1359,9 @@ class NavigationMixin:
         leash_length_mm: float,
         leash_half_angle_deg: float,
         update_hz: float = float(DEFAULT_NAV_HZ),
+        use_profile: bool = True,
+        accel: float | None = None,
+        decel: float | None = None,
     ) -> None:
         from robot.path_planner import LeashedAPFPlanner
         from robot.fsm_helpers import burgerbot_parameters as bp
@@ -1315,16 +1411,19 @@ class NavigationMixin:
                 self._set_virtual_target_world_mm(None)
                 return
 
-            dist_to_goal = dist_to_next + get_path_length(remaining_path)
-            dist_from_start = total_dist - dist_to_goal
-            target_v = VelocityProfile.trapezoidal(
-                dist_from_start = dist_from_start,
-                dist_to_goal = dist_to_goal,
-                max_v = max_vel_mm,
-                accel = bp.MAX_ACCEL_MM_S2,
-                decel = bp.MAX_DECEL_MM_S2,
-                min_v = max_vel_mm * 0.15
-            )
+            if use_profile:
+                dist_to_goal = dist_to_next + get_path_length(remaining_path)
+                dist_from_start = total_dist - dist_to_goal
+                target_v = VelocityProfile.trapezoidal(
+                    dist_from_start = dist_from_start,
+                    dist_to_goal = dist_to_goal,
+                    max_v = max_vel_mm,
+                    accel = accel or bp.MAX_ACCEL_MM_S2,
+                    decel = decel or bp.MAX_DECEL_MM_S2,
+                    min_v = max_vel_mm * 0.15
+                )
+            else:
+                target_v = max_vel_mm
             planner._max_linear = target_v
             planner._target_speed = target_v * 1.2
 
@@ -1346,7 +1445,6 @@ class NavigationMixin:
                 break
 
         self.stop()
-        self._set_virtual_target_world_mm(None)
 
     def _nav_follow_path(
         self,
@@ -1356,6 +1454,9 @@ class NavigationMixin:
         advance_radius_mm: float,
         tolerance_mm: float,
         update_hz: float = float(DEFAULT_NAV_HZ),
+        use_profile: bool = True,
+        accel: float | None = None,
+        decel: float | None = None,
     ) -> None:
         """Shared path-following loop for pure pursuit and APF planners."""
         from robot.fsm_helpers import burgerbot_parameters as bp
@@ -1382,19 +1483,22 @@ class NavigationMixin:
                 self.stop()
                 return
 
-            # Compute remaining path distance
-            dist_to_goal = dist_to_next + get_path_length(remaining_path)
-            dist_from_start = total_dist - dist_to_goal
+            if use_profile:
+                # Compute remaining path distance
+                dist_to_goal = dist_to_next + get_path_length(remaining_path)
+                dist_from_start = total_dist - dist_to_goal
 
-            # Apply trapezoidal velocity profile
-            target_v = VelocityProfile.trapezoidal(
-                dist_from_start = dist_from_start,
-                dist_to_goal = dist_to_goal,
-                max_v = max_vel_mm,
-                accel = bp.MAX_ACCEL_MM_S2,
-                decel = bp.MAX_DECEL_MM_S2,
-                min_v = max_vel_mm * 0.15
-            )
+                # Apply trapezoidal velocity profile
+                target_v = VelocityProfile.trapezoidal(
+                    dist_from_start = dist_from_start,
+                    dist_to_goal = dist_to_goal,
+                    max_v = max_vel_mm,
+                    accel = accel or bp.MAX_ACCEL_MM_S2,
+                    decel = decel or bp.MAX_DECEL_MM_S2,
+                    min_v = max_vel_mm * 0.15
+                )
+            else:
+                target_v = max_vel_mm
 
             linear_mm, angular_rad_s = planner.compute_velocity(
                 (x_mm, y_mm, theta_rad), remaining_path, target_v
@@ -1426,6 +1530,9 @@ class NavigationMixin:
         tolerance_rad: float,
         max_angular_rad: float = 2.0,
         update_hz: float = float(DEFAULT_NAV_HZ),
+        use_profile: bool = True,
+        accel: float | None = None,
+        decel: float | None = None,
     ) -> None:
         """Navigation thread body: rotate to target_rad in place."""
         from robot.fsm_helpers import burgerbot_parameters as bp
@@ -1444,15 +1551,18 @@ class NavigationMixin:
             traveled = abs(_wrap_angle(theta_rad - theta0_rad))
             remaining = abs(error)
 
-            # Apply trapezoidal profile to angular velocity
-            angular_speed_deg = VelocityProfile.trapezoidal(
-                dist_from_start = math.degrees(traveled),
-                dist_to_goal = math.degrees(remaining),
-                max_v = math.degrees(max_angular_rad),
-                accel = bp.MAX_ANGULAR_ACCEL_DEG_S2,
-                decel = bp.MAX_ANGULAR_DECEL_DEG_S2,
-                min_v = 15.0 # deg/s
-            )
+            if use_profile:
+                # Apply trapezoidal profile to angular velocity
+                angular_speed_deg = VelocityProfile.trapezoidal(
+                    dist_from_start = math.degrees(traveled),
+                    dist_to_goal = math.degrees(remaining),
+                    max_v = math.degrees(max_angular_rad),
+                    accel = accel or bp.MAX_ANGULAR_ACCEL_DEG_S2,
+                    decel = decel or bp.MAX_ANGULAR_DECEL_DEG_S2,
+                    min_v = 15.0 # deg/s
+                )
+            else:
+                angular_speed_deg = math.degrees(max_angular_rad)
 
             angular = math.copysign(math.radians(angular_speed_deg), error)
             self._send_body_velocity_mm(0.0, angular)
