@@ -1,0 +1,142 @@
+@startuml
+' --- Layout & Styling ---
+skinparam linetype ortho
+skinparam ranksep 100
+skinparam nodesep 150
+
+<style>
+stateDiagram {
+  state {
+    Padding 15
+    BackgroundColor White
+    LineColor Black
+    FontStyle Bold
+  }
+}
+</style>
+
+title Robot Mission Hierarchical State Diagram
+
+' --- Top Level Flow ---
+[*] -down-> INIT
+
+state INIT {
+    INIT : **Entry**: start_robot(), reset_mission_pose()
+}
+
+state TELEOP {
+    TELEOP : **Entry**: enable_motors(), enable_slam()
+}
+
+state DONE {
+    DONE : **Entry**: plot_trajectory(), shutdown()
+}
+
+state ERROR {
+    ERROR : **Entry**: shutdown(), estop()
+}
+
+' --- Main Execution Branch ---
+INIT -down-> EXECUTE : to_execute
+EXECUTE -down-> DONE : to_done
+DONE -left-> INIT : to_init
+
+' Side Transitions
+INIT -right-> TELEOP : to_teleop
+TELEOP -left-> INIT : to_init
+EXECUTE -right-> ERROR : error / e-stop
+
+state EXECUTE {
+    state SelectTask <<choice>>
+    [*] -down-> SelectTask
+    
+    SelectTask -down-> TaskExecution : [has tasks]
+    SelectTask -right-> [*] : [done]
+    
+    state "Task Execution" as TaskExecution {
+        state TaskEntry <<choice>>
+        [*] -down-> TaskEntry
+        
+        ' Task Dispatching - Horizontal alignment for tasks
+        TaskEntry -down-> HomeTask
+        TaskEntry -down-> WaitTask
+        TaskEntry -down-> NavTask
+        TaskEntry -down-> ManipTask
+        TaskEntry -down-> IdentTask
+        TaskEntry -down-> PauseTask
+
+        ' Hidden links to force left-to-right adjacent placement
+        HomeTask -[hidden]right-> WaitTask
+        WaitTask -[hidden]right-> NavTask
+        NavTask -[hidden]right-> ManipTask
+        ManipTask -[hidden]right-> IdentTask
+        IdentTask -[hidden]right-> PauseTask
+
+        state HomeTask {
+            [*] -down-> Homing
+            Homing -down-> Initializing : [lift_init_height]
+            Initializing -down-> [*]
+            Homing -down-> [*]
+        }
+
+        state NavTask {
+            [*] -down-> StartHeading : [if needed]
+            StartHeading -down-> PositionFollow : [done]
+            PositionFollow -down-> GoalHeading : [if needed]
+            PositionFollow -down-> [*]
+            GoalHeading -down-> [*]
+        }
+
+        state WaitTask {
+            [*] -down-> Searching
+            Searching -down-> Pausing : [turn done]
+            Pausing -down-> Searching : [pause done]
+            Searching -down-> [*] : [green light]
+        }
+
+        state ManipTask {
+            state "PICK_SEQUENCE" as Pick {
+                [*] -down-> LEVEL_P
+                LEVEL_P -down-> OPEN_P
+                OPEN_P -down-> FORWARD_P
+                FORWARD_P -down-> CLOSE_P
+                CLOSE_P -down-> RAISE_P
+                RAISE_P -down-> RETREAT_P
+                RETREAT_P -down-> [*]
+            }
+            ||
+            state "PLACE_SEQUENCE" as Place {
+                [*] -down-> LEVEL_L
+                LEVEL_L -down-> FORWARD_L
+                FORWARD_L -down-> LOWER_L
+                LOWER_L -down-> OPEN_L
+                OPEN_L -down-> RETREAT_L
+                RETREAT_L -down-> [*]
+            }
+        }
+
+        state IdentTask {
+            [*] -down-> Analyzing
+            Analyzing -down-> Analyzing : [retry]
+            Analyzing -down-> [*] : [match]
+        }
+
+        state PauseTask {
+            [*] -down-> Waiting
+            Waiting -down-> [*] : [timer]
+        }
+        
+        ' Return to Selection
+        HomeTask -up-> SelectTask : "next"
+        WaitTask -up-> SelectTask : "next"
+        NavTask -up-> SelectTask : "next"
+        ManipTask -up-> SelectTask : "next"
+        IdentTask -up-> SelectTask : "next"
+        PauseTask -up-> SelectTask : "next"
+    }
+    
+    ' Local Loop/Abort
+    TaskExecution -right-> SelectTask : skip
+}
+
+@enduml
