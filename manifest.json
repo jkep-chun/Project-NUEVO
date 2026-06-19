@@ -5,8 +5,8 @@
     "section": "Yen",
     "group": 7,
     "title": "Group 7 Capstone Portfolio",
-    "authors": ["Aren Adamien", "Jacob Chun", "Nima Elyasi", "Alex Kano", "Devin VonTickner"],
-    "summary": "This is an autonomous differential-drive 'food' delivery rover.",
+    "authors": ["Aren Adamian", "Jacob Chun", "Nima Elyasi", "Alex Kano", "Inderpreet Singh", "Devin VonTickner"],
+    "summary": "An autonomous differential-drive 'burger' assembly and delivery rover.",
     "thumbnail": "assets/robot.jpg",
     "keywords": ["AMCL", "CV", "LAPF Path Planning"]
 }
